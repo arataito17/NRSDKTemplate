@@ -67,3 +67,4 @@ conansync/build.gradle
 conansync/aar
 conansync/libs
 conansync/src
+*.apk
