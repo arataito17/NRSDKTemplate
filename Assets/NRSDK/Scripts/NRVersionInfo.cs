@@ -12,7 +12,7 @@ namespace NRKernal
     /// <summary> Holds information about Xreal SDK version info. </summary>
     public class NRVersionInfo
     {
-        private static readonly string sUnityPackageVersion = "20241203114459";
+        private static readonly string sUnityPackageVersion = "20241205145955";
 
         /// <summary> Gets the version. </summary>
         /// <returns> The version. </returns>
