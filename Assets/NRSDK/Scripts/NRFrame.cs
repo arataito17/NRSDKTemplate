@@ -67,7 +67,7 @@ namespace NRKernal
         {
             get
             {
-                return NRDevice.Instance.MonoMode;
+                return NRSessionManager.Instance.NRSwapChainMan.MonoMode;
             }
         }
 

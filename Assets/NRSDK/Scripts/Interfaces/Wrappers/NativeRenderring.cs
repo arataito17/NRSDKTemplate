@@ -28,6 +28,17 @@ namespace NRKernal
         LINEAR = 1,
     }
 
+    /// <summary> Values that represent frame buffer mode. </summary>
+    internal enum NativeFrameBufferMode
+    {
+        /// <summary> An enum constant representing the unknown option. </summary>
+        UnKnown = 0,
+        /// <summary> An enum constant representing the two d mono option. </summary>
+        Mono = 1,
+        /// <summary> An enum constant representing the three d stereo option. </summary>
+        Stereo = 2,
+    }
+
     /// <summary>
     /// HMD Eye offset Native API .
     /// </summary>
@@ -65,7 +76,7 @@ namespace NRKernal
             }
 
             m_RenderingHandle = renderHandle;
-#if ENABLE_NATIVE_SESSION_MANAGER 
+#if ENABLE_NATIVE_SESSION_MANAGER && !UNITY_EDITOR
             NativeSessionManager.SetRenderingHandle(m_RenderingHandle);
 #endif
             return m_RenderingHandle != 0;
@@ -122,6 +133,14 @@ namespace NRKernal
             NativeApi.NRRenderingSetPersistentProtect(m_RenderingHandle, persistentProtectMode ? (uint)1 : (uint)0);
         }
 
+        public NativeFrameBufferMode NRRenderingGetFrameBufferMode()
+        {
+            NativeFrameBufferMode frameBufferMode = NativeFrameBufferMode.UnKnown;
+            var result = NativeApi.NRRenderingGetFrameBufferMode(m_RenderingHandle, ref frameBufferMode);
+            NativeErrorListener.Check(result, this, "Resume", true);
+            return frameBufferMode;
+        }
+        
         public bool Stop()
         {
             if (m_RenderingHandle == 0)
@@ -177,6 +196,9 @@ namespace NRKernal
             
             [DllImport(NativeConstants.NRNativeLibrary)]
             public static extern NativeResult NRRenderingSetPersistentProtect(UInt64 rendering_handle, UInt32 state);
+            
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRRenderingGetFrameBufferMode(UInt64 rendering_handle, ref NativeFrameBufferMode out_frame_buffer_mode);
             #endregion
         };
     }

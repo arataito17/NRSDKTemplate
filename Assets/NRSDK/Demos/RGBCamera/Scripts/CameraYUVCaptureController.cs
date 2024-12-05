@@ -9,6 +9,7 @@
 
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngineInternal;
 
 namespace NRKernal.NRExamples
 {
@@ -43,7 +44,7 @@ namespace NRKernal.NRExamples
         }
 
         /// <summary> Plays this object. </summary>
-        public void Play()
+        public virtual void Play()
         {
             if (YuvCamTexture == null)
             {
@@ -85,6 +86,16 @@ namespace NRKernal.NRExamples
         {
             YuvCamTexture?.Stop();
             YuvCamTexture = null;
+        }
+        protected void Validate(ProjectionValidater validator)
+        {
+            if (YuvCamTexture != null)
+            {
+                validator.ProjectPointFunc = YuvCamTexture.RGBCamera.NativeRGBCamera.ProjectPoint;
+                validator.UnProjectPointFunc = YuvCamTexture.RGBCamera.NativeRGBCamera.UnProjectPoint;
+                validator.StartValidate("rgb_project.csv", "rgb_unproject.csv", "rgb_test_results.csv");
+                NRDebugger.Info($"[RGBCameraProjection] Validate Finish");
+            }
         }
     }
 }

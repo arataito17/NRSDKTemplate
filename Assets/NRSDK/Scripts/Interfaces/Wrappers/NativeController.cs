@@ -38,33 +38,34 @@ namespace NRKernal
             NativeErrorListener.Check(result, this, "GroupCreate", true);
             NRDebugger.Info("[NativeController] NRControllerGroupCreate: {0}", m_ControllerGroupHandle);
             int groupCount = 0;
-            result = NativeApi.NRControllerGroupGetCount(m_ControllerGroupHandle, ref groupCount);
+            result = NativeApi.NRControllerGroupGetCountExt(m_ControllerGroupHandle, ref groupCount);
             NativeErrorListener.Check(result, this, "GroupGetCount");
             NRDebugger.Info("[NativeController] NRControllerGroupGetCount: {0}", groupCount);
-            m_ControllerHandle = new UInt64[groupCount];
-            m_StateHandles = new UInt64[groupCount];
+            m_ControllerHandle = new UInt64[1];
+            m_StateHandles = new UInt64[1];
             for (int i = 0; i < groupCount; i++)
             {
-                bool value = NativeApi.NRControllerGroupCheckControllerType(m_ControllerGroupHandle,
-                    i, NRControllerType.NR_CONTROLLER_TYPE_BASIC);
-                NRDebugger.Info("[NativeController] CheckControllerType: {0}", value);
-                int controller_id = 0;
-                result = NativeApi.NRControllerGroupGetControllerId(m_ControllerGroupHandle, i, ref controller_id);
-                NativeErrorListener.Check(result, this, "GetControllerId");
-                IntPtr out_description = IntPtr.Zero;
-                uint out_description_length = 0;
-                result = NativeApi.NRControllerGroupGetDescription(m_ControllerGroupHandle, i, ref out_description, ref out_description_length);
-                NativeErrorListener.Check(result, this, "GetDescription");
-                byte[] bytes = new byte[out_description_length];
-                Marshal.Copy(out_description, bytes, 0, (int)out_description_length);
-                NRDebugger.Info("[NativeController] GetDescription: {0}", System.Text.Encoding.ASCII.GetString(bytes, 0, (int)out_description_length));
-                ControllerAvailableFeature feature = 0;
-                result = NativeApi.NRControllerGroupGetSupportedFeatures(m_ControllerGroupHandle, i, ref feature);
-                NativeErrorListener.Check(result, this, "GetSupportedFeatures");
-                NRDebugger.Info("[NativeController] GetSupportedFeatures: {0}", feature);
-                result = NativeApi.NRControllerCreate(controller_id, ref m_ControllerHandle[i]);
-                NativeErrorListener.Check(result, this, "NRControllerCreate");
-                NRDebugger.Info("[NativeController] Create : {0}", m_ControllerHandle[i]);
+                if (NativeApi.NRControllerGroupCheckControllerType(m_ControllerGroupHandle, i, NRControllerType.NR_CONTROLLER_TYPE_BASIC))
+                {
+                    NRDebugger.Info("[NativeController] CheckControllerType: {0}", i);
+                    int controller_id = 0;
+                    result = NativeApi.NRControllerGroupGetControllerIdExt(m_ControllerGroupHandle, i, ref controller_id);
+                    NativeErrorListener.Check(result, this, "GetControllerId");
+                    IntPtr out_description = IntPtr.Zero;
+                    uint out_description_length = 0;
+                    result = NativeApi.NRControllerGroupGetDescription(m_ControllerGroupHandle, i, ref out_description, ref out_description_length);
+                    NativeErrorListener.Check(result, this, "GetDescription");
+                    byte[] bytes = new byte[out_description_length];
+                    Marshal.Copy(out_description, bytes, 0, (int)out_description_length);
+                    NRDebugger.Info("[NativeController] GetDescription: {0}", System.Text.Encoding.ASCII.GetString(bytes, 0, (int)out_description_length));
+                    ControllerAvailableFeature feature = 0;
+                    result = NativeApi.NRControllerGroupGetSupportedFeatures(m_ControllerGroupHandle, i, ref feature);
+                    NativeErrorListener.Check(result, this, "GetSupportedFeatures");
+                    NRDebugger.Info("[NativeController] GetSupportedFeatures: {0}", feature);
+                    result = NativeApi.NRControllerCreate(controller_id, ref m_ControllerHandle[0]);
+                    NativeErrorListener.Check(result, this, "NRControllerCreate");
+                    NRDebugger.Info("[NativeController] Create : {0}", m_ControllerHandle[0]);
+                }
             }
         }
 
@@ -79,10 +80,10 @@ namespace NRKernal
 
             NRDebugger.Info("[NativeController] Start");
             for (int i = 0; i < m_ControllerHandle.Length; i++)
-            {
-                NativeResult result = NativeApi.NRControllerStart(m_ControllerHandle[i]);
-                NativeErrorListener.Check(result, this, "Start", true);
-            }
+                {
+                    NativeResult result = NativeApi.NRControllerStart(m_ControllerHandle[i]);
+                    NativeErrorListener.Check(result, this, "Start", true);
+                }
 
             return true;
         }
@@ -91,7 +92,7 @@ namespace NRKernal
         /// <returns> The controller count. </returns>
         public int GetControllerCount()
         {
-            return m_ControllerHandle == null ? 0 : m_ControllerHandle.Length;
+            return m_ControllerHandle == null ? 0 : 1;
         }
 
         /// <summary> Pauses this object. </summary>
@@ -438,7 +439,7 @@ namespace NRKernal
             /// <param name="out_group_count"> [in,out] The count of controller group. </param>
             /// <returns> The result of operation. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRControllerGroupGetCount(UInt64 controller_group_handle,
+            public static extern NativeResult NRControllerGroupGetCountExt(UInt64 controller_group_handle,
                 ref int out_group_count);
 
             /// <summary> Check whether the controller system which the group_index
@@ -457,7 +458,7 @@ namespace NRKernal
             /// <param name="out_controller_id"> [in,out] The identifier of controller system. </param>
             /// <returns> The result of operation. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRControllerGroupGetControllerId(UInt64 controller_group_handle,
+            public static extern NativeResult NRControllerGroupGetControllerIdExt(UInt64 controller_group_handle,
                 int group_index, ref int out_controller_id);
 
             /// <summary> Get the description of controller group. </summary>

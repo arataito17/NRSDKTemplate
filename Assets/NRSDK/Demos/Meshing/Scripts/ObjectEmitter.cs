@@ -66,7 +66,7 @@ namespace NRKernal.NRExamples
             }
             rigidbody.transform.position = NRFrame.HeadPose.position + NRFrame.HeadPose.forward * 0.3f;
             rigidbody.transform.rotation = NRFrame.HeadPose.rotation;
-            rigidbody.velocity = NRFrame.HeadPose.forward * 2f;
+            rigidbody.linearVelocity = NRFrame.HeadPose.forward * 2f;
         }
     }
 }

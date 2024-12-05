@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -47,11 +47,11 @@ namespace NRKernal
         private static RenderEventDelegate RenderThreadHandle = new RenderEventDelegate(RunOnRenderThread);
         /// <summary> The render thread handle pointer. </summary>
         private static IntPtr RenderThreadHandlePtr = Marshal.GetFunctionPointerForDelegate(RenderThreadHandle);
-        
+
         private const int k_CreateMonoDisplayTextures = 0x0001;
         private const int k_CreateLeftDisplayTextures = 0x0002;
         private const int k_CreateRightDisplayTextures = 0x0003;
-        
+
         private IntPtr m_WorkingTexture = IntPtr.Zero;
         internal IntPtr WorkingTexture
         {
@@ -64,6 +64,7 @@ namespace NRKernal
             base.Initialize();
 
             m_RenderCamera = gameObject.GetComponent<Camera>();
+            m_RenderCamera.enabled = true;
 
             NativeResolution resolution = new NativeResolution(1920, 1080);
 #if !UNITY_EDITOR
@@ -134,7 +135,8 @@ namespace NRKernal
         }
 #endif
 
-        override protected void Update() {
+        override protected void Update()
+        {
             base.Update();
 
             if (NRSessionManager.Instance.NRSwapChainMan.isRunning && !m_RenderCamera.enabled)
@@ -163,9 +165,9 @@ namespace NRKernal
                 NRDebugger.Info("[NRDisplayOverlay] PopulateBuffers: workingTex={0}", bufferHandler);
 #if USING_XR_SDK
             m_WorkingTexture = bufferHandler;
-            
+
             UInt32 multiPassEye = 0;
-            if  (!NRFrame.MonoMode && !NRFrame.isXRRenderMultiview)
+            if (!NRFrame.MonoMode && !NRFrame.isXRRenderMultiview)
             {
                 multiPassEye = (UInt32)((targetDisplay == NativeDevice.LEFT_DISPLAY) ? 1 : 2);
             }
@@ -314,7 +316,7 @@ namespace NRKernal
                 createTexEvent = k_CreateLeftDisplayTextures;
             else if (targetDisplay == NativeDevice.RIGHT_DISPLAY)
                 createTexEvent = k_CreateRightDisplayTextures;
-            
+
             GL.IssuePluginEvent(RenderThreadHandlePtr, createTexEvent);
 #else
             for (int i = 0; i < m_BufferSpec.bufferCount; i++)
@@ -331,6 +333,8 @@ namespace NRKernal
             if (Textures.Count > 0)
                 NRSessionManager.Instance.NRSwapChainMan.NativeSwapchain.SetSwapChainBuffers(m_SwapChainHandler, Textures.Keys.ToArray());
 #endif
+
+            GL.InvalidateState();
         }
 
         public void SetFilterMode(FilterMode filterMode)
@@ -354,7 +358,7 @@ namespace NRKernal
             bool isMonoMode = NRFrame.MonoMode;
             int textureArrLen = (!isMonoMode && isMultiview) ? 2 : 0;
             UInt32 multiPassEye = 0;
-            if  (!isMonoMode && !isMultiview)
+            if (!isMonoMode && !isMultiview)
             {
                 multiPassEye = (UInt32)((targetDisplay == NativeDevice.LEFT_DISPLAY) ? 1 : 2);
             }
@@ -387,7 +391,7 @@ namespace NRKernal
                 targetDisplayOverlay = NRSessionManager.Instance.NRSwapChainMan.leftDisplayOverlay;
             else if (eventID == k_CreateRightDisplayTextures)
                 targetDisplayOverlay = NRSessionManager.Instance.NRSwapChainMan.rightDisplayOverlay;
-            
+
             targetDisplayOverlay?.GfxThread_CreateOverlayTextures();
         }
 #endif
@@ -398,7 +402,7 @@ namespace NRKernal
             {
                 return;
             }
-            
+
             NRDebugger.Info("[NRDisplayOverlay] ReleaseOverlayTextures: cam={0}, targetDisplay={1}.", m_RenderCamera.name, targetDisplay);
 #if !USING_XR_SDK
             foreach (var item in Textures)
@@ -410,7 +414,8 @@ namespace NRKernal
             Textures.Clear();
         }
 
-        new protected void OnDestroy() {
+        new protected void OnDestroy()
+        {
             NRDebugger.Info("[NRDisplayOverlay] OnDestroy: cam={0}, targetDisplay={1}.", m_RenderCamera.name, targetDisplay);
             base.OnDestroy();
 

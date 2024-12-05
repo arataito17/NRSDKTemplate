@@ -14,3 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetDevices: 0100000002000000
   supportMultiResume: 1
+  licenseAsset: {fileID: 0}
+  enableNativeSessionManager: 0

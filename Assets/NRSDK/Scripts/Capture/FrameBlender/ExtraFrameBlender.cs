@@ -9,19 +9,20 @@
 
 namespace NRKernal.Record
 {
+    using System.Collections.Generic;
     using UnityEngine;
 
     /// <summary> A frame blender. </summary>
     public class ExtraFrameBlender : BlenderBase
     {
         /// <summary> Target camera. </summary>
-        protected Camera m_TargetCamera;
+        protected Camera[] m_TargetCamera;
         /// <summary> The encoder. </summary>
         protected IEncoder m_Encoder;
         /// <summary> The blend material. </summary>
         private Material m_BackGroundMat;
-        private NRBackGroundRender m_NRBackGroundRender;
-        private NRCameraInitializer m_DeviceParamInitializer;
+        private List<NRBackGroundRender> m_NRBackGroundRender;
+        private List<NRCameraInitializer> m_DeviceParamInitializer;
 
         private CaptureSide m_CaputreSide;
         private RenderTexture m_BlendTexture;
@@ -38,35 +39,47 @@ namespace NRKernal.Record
         }
 
         /// <summary> Initializes this object. </summary>
-        /// <param name="camera">  The camera.</param>
+        /// <param name="cameraArray">  The camera.</param>
         /// <param name="encoder"> The encoder.</param>
         /// <param name="param">   The parameter.</param>
-        public override void Init(Camera camera, IEncoder encoder, CameraParameters param)
+        public override void Init(Camera[] cameraArray, IEncoder encoder, CameraParameters param)
         {
-            base.Init(camera, encoder, param);
+            base.Init(cameraArray, encoder, param);
 
             Width = param.cameraResolutionWidth;
             Height = param.cameraResolutionHeight;
-            m_TargetCamera = camera;
+            m_TargetCamera = cameraArray;
             m_Encoder = encoder;
             BlendMode = param.blendMode;
             m_CaputreSide = param.captureSide;
 
-            m_NRBackGroundRender = m_TargetCamera.gameObject.GetComponent<NRBackGroundRender>();
-            if (m_NRBackGroundRender == null)
-            {
-                m_NRBackGroundRender = m_TargetCamera.gameObject.AddComponent<NRBackGroundRender>();
-            }
-            m_NRBackGroundRender.enabled = false;
-            m_DeviceParamInitializer = camera.gameObject.GetComponent<NRCameraInitializer>();
+            m_NRBackGroundRender = new List<NRBackGroundRender>();
+            m_DeviceParamInitializer = new List<NRCameraInitializer>();
 
-            m_TargetCamera.enabled = false;
-            m_BlendTexture = UnityExtendedUtility.CreateRenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
-            m_TargetCamera.targetTexture = m_BlendTexture;
-            if(m_CaputreSide == CaptureSide.Both)
+            for (var i = 0; i < cameraArray.Length; ++i)
             {
-                m_BlendTextureLeft = UnityExtendedUtility.CreateRenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
-                m_BlendTextureRight = UnityExtendedUtility.CreateRenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+                var backGroundRender = m_TargetCamera[i].gameObject.GetComponent<NRBackGroundRender>();
+                if (backGroundRender == null)
+                {
+                    backGroundRender = m_TargetCamera[i].gameObject.AddComponent<NRBackGroundRender>();
+                }
+                backGroundRender.enabled = false;
+                m_NRBackGroundRender.Add(backGroundRender);
+
+                m_DeviceParamInitializer.Add(cameraArray[i].gameObject.GetComponent<NRCameraInitializer>());
+
+                m_TargetCamera[i].enabled = false;
+            }
+
+            if (m_CaputreSide == CaptureSide.Single)
+            {
+                m_BlendTexture = UnityExtendedUtility.CreateRenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+            }
+            else 
+            { 
+                m_BlendTextureLeft = UnityExtendedUtility.CreateRenderTexture((int)(0.5f * Width), (int)(0.5f * Height), 24, RenderTextureFormat.ARGB32);
+                m_BlendTextureRight = UnityExtendedUtility.CreateRenderTexture((int)(0.5f * Width), (int)(0.5f * Height), 24, RenderTextureFormat.ARGB32);
+                m_BlendTexture = UnityExtendedUtility.CreateRenderTexture(Width, (int)(0.5f * Height), 24, RenderTextureFormat.ARGB32);
             }
         }
 
@@ -76,15 +89,21 @@ namespace NRKernal.Record
         {
             base.OnFrame(frame);
 
-            if (!m_DeviceParamInitializer.IsInitialized)
+            for(var i=0; i<m_DeviceParamInitializer.Count; ++i)
             {
-                return;
+                if (!m_DeviceParamInitializer[i].IsInitialized)
+                {
+                    return;
+                }
             }
 
             if (m_BackGroundMat == null)
             {
                 m_BackGroundMat = CreatBlendMaterial(BlendMode, frame.textureType);
-                m_NRBackGroundRender.SetMaterial(m_BackGroundMat);
+                for(var i=0; i<m_NRBackGroundRender.Count; ++i)
+                {
+                    m_NRBackGroundRender[i].SetMaterial(m_BackGroundMat);
+                }
             }
 
             bool isyuv = frame.textureType == TextureType.YUV;
@@ -95,7 +114,8 @@ namespace NRKernal.Record
             switch (BlendMode)
             {
                 case BlendMode.VirtualOnly:
-                    m_NRBackGroundRender.enabled = false;
+                    for (var i = 0; i < m_NRBackGroundRender.Count; ++i)
+                        m_NRBackGroundRender[i].enabled = false;
                     CameraRenderToTarget();
                     break;
                 case BlendMode.RGBOnly:
@@ -111,11 +131,13 @@ namespace NRKernal.Record
                     {
                         m_BackGroundMat.SetTexture(MainTextureStr, frame.textures[0]);
                     }
-                    m_NRBackGroundRender.enabled = true;
+                    for (var i = 0; i < m_NRBackGroundRender.Count; ++i)
+                        m_NRBackGroundRender[i].EnableARBackgroundRendering(false);
                     CameraRenderToTarget();
                     break;
                 default:
-                    m_NRBackGroundRender.enabled = false;
+                    for (var i = 0; i < m_NRBackGroundRender.Count; ++i)
+                        m_NRBackGroundRender[i].enabled = false;
                     break;
             }
 
@@ -127,33 +149,20 @@ namespace NRKernal.Record
         {
             if (m_CaputreSide == CaptureSide.Single)
             {
-                m_TargetCamera.targetTexture = m_BlendTexture;
-                m_TargetCamera.Render();
+                m_TargetCamera[0].targetTexture = m_BlendTexture;
+                m_TargetCamera[0].Render();
             }
             else if (m_CaputreSide == CaptureSide.Both)
             {
-                var pos = m_TargetCamera.transform.position;
-                var rotation = m_TargetCamera.transform.rotation;
-                var mat = m_TargetCamera.projectionMatrix;
+                m_NRBackGroundRender[0].enabled = true;
+                m_NRBackGroundRender[1].enabled = false;
+                m_TargetCamera[0].targetTexture = m_BlendTextureLeft;
+                m_TargetCamera[0].Render();
 
-                var originLCam = NRSessionManager.Instance.NRHMDPoseTracker.leftCamera;
-                var originRCam = NRSessionManager.Instance.NRHMDPoseTracker.rightCamera;
-
-                m_TargetCamera.transform.position = originLCam.transform.position;
-                m_TargetCamera.transform.rotation = originLCam.transform.rotation;
-                m_TargetCamera.projectionMatrix = originLCam.projectionMatrix;
-                m_TargetCamera.targetTexture = m_BlendTextureLeft;
-                m_TargetCamera.Render();
-
-                m_TargetCamera.transform.position = originRCam.transform.position;
-                m_TargetCamera.transform.rotation = originRCam.transform.rotation;
-                m_TargetCamera.projectionMatrix = originRCam.projectionMatrix;
-                m_TargetCamera.targetTexture = m_BlendTextureRight;
-                m_TargetCamera.Render();
-
-                m_TargetCamera.transform.position = pos;
-                m_TargetCamera.transform.rotation = rotation;
-                m_TargetCamera.projectionMatrix = mat;
+                m_NRBackGroundRender[0].enabled = false;
+                m_NRBackGroundRender[1].enabled = true;
+                m_TargetCamera[1].targetTexture = m_BlendTextureRight;
+                m_TargetCamera[1].Render();
 
                 MergeRenderTextures(m_BlendTextureLeft, m_BlendTextureRight, m_BlendTexture);
             }

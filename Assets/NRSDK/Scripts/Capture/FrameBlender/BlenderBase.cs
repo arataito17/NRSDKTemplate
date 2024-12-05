@@ -47,7 +47,7 @@ namespace NRKernal.Record
             protected set;
         }
 
-        public virtual void Init(Camera camera, IEncoder encoder, CameraParameters param) { }
+        public virtual void Init(Camera[] camera, IEncoder encoder, CameraParameters param) { }
 
         public virtual void OnFrame(UniversalTextureFrame frame) { }
 

@@ -16,6 +16,8 @@ namespace NRKernal
     using System.Linq.Expressions;
     using System.Collections.Generic;
     using UnityEngine;
+    using System.Text.RegularExpressions;
+    using System.Linq;
 
     /// <summary> A list of the android. </summary>
     internal class AndroidGradleTemplate
@@ -27,11 +29,13 @@ namespace NRKernal
             EPT_ADD_DEPENDENCIES = 2,
             EPT_REMOVE_DEPENDENCIES = 3,
             EPT_ADD_SUPPORT = 4,
+            EPT_SET_PACKINGOPTIONS = 5,
         }
         private interface IGradlePatcher
         {
             void PreprocessLine(string line);
             bool ProcessLine(string line, ref string result);
+            string ProcessEntireContent(string content);
         }
 
         private class GradlePluginVersionPatcher : IGradlePatcher
@@ -105,6 +109,11 @@ namespace NRKernal
                 }
                 return updateVersion;
             }
+
+            public string ProcessEntireContent(string content)
+            {
+                return content;
+            }
         }
 
         private class GradleAddDependenciesPatcher : IGradlePatcher
@@ -142,6 +151,79 @@ namespace NRKernal
                 }
                 return false;
             }
+
+            public string ProcessEntireContent(string content)
+            {
+                return content;
+            }
+        }
+
+        private class GradlePackagingOptionsPatcher : IGradlePatcher
+        {
+            string[] DEPS_MARKS = new string[2] { "**PACKAGING**", "**PACKAGING_OPTIONS**" };
+            string mPackingOptionsRegex = @"(.*packagingOptions\s+\{)(.*?)(\}.*)";
+            List<string> mOptionLines = new List<string>();
+
+            bool mUsingDefaultPackingOptions = false;
+            string DefaultPackingOptionsKey = string.Empty;
+
+            public void SetOptions(string options)
+            {
+                mOptionLines.Add(options);
+            }
+
+            public void PreprocessLine(string line)
+            {
+                for (int i = mOptionLines.Count - 1; i >= 0; i--)
+                {
+                    if (line.Contains(mOptionLines[i]))
+                    {
+                        mOptionLines.RemoveAt(i);
+                    }
+                }
+
+                if (mUsingDefaultPackingOptions)
+                    return;
+
+                foreach (var key in DEPS_MARKS)
+                {
+                    if (line.Contains(key))
+                    {
+                        DefaultPackingOptionsKey = key;
+                        mUsingDefaultPackingOptions = true;
+                        break;
+                    }
+                }
+            }
+            public bool ProcessLine(string line, ref string result)
+            {
+                if (mOptionLines.Count <= 0)
+                    return false;
+
+                if (mUsingDefaultPackingOptions && !string.IsNullOrEmpty(DefaultPackingOptionsKey))
+                {
+                    if (line.Contains(DefaultPackingOptionsKey))
+                    {
+                        string completeOptions = string.Format("\npackagingOptions {{\n{0}\n}}", string.Join(Environment.NewLine, mOptionLines));
+                        result = line.Replace(DefaultPackingOptionsKey, completeOptions);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            public string ProcessEntireContent(string content)
+            {
+                if (!mUsingDefaultPackingOptions && mOptionLines.Count > 0)
+                {
+                    Match match = Regex.Match(content, mPackingOptionsRegex, RegexOptions.Singleline);
+                    if (match.Success)
+                    {
+                        return match.Groups[1].Value + match.Groups[2].Value + string.Join(Environment.NewLine, mOptionLines) + match.Groups[3].Value;
+                    }
+                }
+                return content;
+            }
         }
 
         private class GradleRemoveDependenciesPatcher : IGradlePatcher
@@ -176,6 +258,11 @@ namespace NRKernal
                     }
                 }
                 return includeDeps;
+            }
+
+            public string ProcessEntireContent(string content)
+            {
+                return content;
             }
         }
 
@@ -218,6 +305,11 @@ namespace NRKernal
                 }
                 result = tempLine + line;
                 return false;
+            }
+
+            public string ProcessEntireContent(string content)
+            {
+                return content;
             }
 
             private string GetSupportStringNotInFile()
@@ -285,6 +377,13 @@ namespace NRKernal
             addSupportPatcher.AddSupport(keyToken);
         }
 
+        public void SetPackingOptions(string options)
+        {
+            GradlePackagingOptionsPatcher packingOptionsPather = GetOrAddPatcher<GradlePackagingOptionsPatcher>(
+                EPatcherType.EPT_SET_PACKINGOPTIONS);
+            packingOptionsPather.SetOptions(options);
+        }
+
         public void PreprocessGradleFile()
         {
             if (mPatchers.Count <= 0)
@@ -318,8 +417,14 @@ namespace NRKernal
                         content.Add(newLine);
                     }
                 }
-                
-                File.WriteAllLines(m_Path, content);
+
+                //process entire file content
+                string text = string.Join(Environment.NewLine, content);
+                foreach (var pair in mPatchers)
+                {
+                    text = pair.Value.ProcessEntireContent(text);
+                }
+                File.WriteAllText(m_Path, text);
             }
             catch (Exception ex)
             {

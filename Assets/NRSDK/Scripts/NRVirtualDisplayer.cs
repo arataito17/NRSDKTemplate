@@ -33,6 +33,8 @@ namespace NRKernal
         /// Event queue for all listeners interested in onDisplayScreenChanged events. 
         /// </summary>
         public static event Action<Resolution> OnDisplayScreenChangedEvent;
+        /// <summary> Event queue for all listeners interested in session events. </summary>
+        public static SessionSpecialEvent OnSessionSpecialEvent;
         /// <summary> State of the system button. </summary>
         [NonSerialized] public static SystemInputState SystemButtonState = new SystemInputState();
         /// <summary> The camera. </summary>
@@ -124,7 +126,9 @@ namespace NRKernal
 
             // nrdisplay must be created after nrdevice.
             m_Subsystem = NRFrame.CreateSubsystem<NRDisplaySubsystemDescriptor, NRDisplaySubsystem>(NRDisplaySubsystemDescriptor.Name);
-
+#if !UNITY_EDITOR
+            OnSessionSpecialEvent?.Invoke(SessionSpecialEventType.NativeDisplayCreated);
+#endif
             Subsystem.ListenMainScrResolutionChanged(OnDisplayResolutionChanged);
             Subsystem.Start();
 

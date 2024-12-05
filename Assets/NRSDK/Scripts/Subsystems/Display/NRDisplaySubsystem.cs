@@ -74,5 +74,12 @@ namespace NRKernal
             NativeDisplay.ListenMainScrResolutionChanged(callback);
 #endif
         }
+
+        public void NRDisplayInitAndSetFlag(NRDisplayPropertyType property, bool addFlag)
+        {
+#if !UNITY_EDITOR
+            NativeDisplay.NRDisplayInitAndSetFlag(property, addFlag);
+#endif
+        }
     }
 }

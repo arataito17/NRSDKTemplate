@@ -47,6 +47,12 @@ namespace NRKernal
             NativeErrorListener.Check(result, this, "Start", true);
         }
 
+        public void NRDisplayInitAndSetFlag(NRDisplayPropertyType property, bool addFlag)
+        {
+            NativeResult result = NativeApi.NRDisplayInitAndSetFlag(m_DisplayHandle, (int)property, addFlag ? 1 : 0);
+            NativeErrorListener.Check(result, this, "ChangeDisplayProperties");
+        }
+
         /// <summary> Listen main screen resolution changed. </summary>
         /// <param name="callback"> The callback.</param>
         public void ListenMainScrResolutionChanged(NRDisplayResolutionCallback callback)
@@ -149,6 +155,13 @@ namespace NRKernal
             public static extern NativeResult NRDisplaySetMainDisplayTexture(UInt64 display_handle,
                 IntPtr controller_texture);
 
+            /// <summary> Nr display set display window properties </summary>
+            /// <param name="display_handle"> The display handle. </param>
+            /// <param name="type"> NRDisplayPropertyType </param>
+            /// <param name="flag"> 1 enable, 0 disable</param>
+            /// <returns></returns>
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRDisplayInitAndSetFlag(UInt64 display_handle, int type, int flag);
             /// <summary> Nr display destroy. </summary>
             /// <param name="display_handle"> The display handle.</param>
             /// <returns> A NativeResult. </returns>

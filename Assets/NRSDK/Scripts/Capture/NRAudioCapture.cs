@@ -76,7 +76,8 @@ namespace NRKernal.Record
         {
             float volumeFactorMic = 1.0f;
             float volumeFactorApp = 1.0f;
-            if (NRDevice.Subsystem.GetDeviceType() == NRDeviceType.XrealLight)
+            var deviceType = NRDevice.Subsystem.GetDeviceType();
+            if (deviceType == NRDeviceType.XrealLight)
             {
                 volumeFactorMic = NativeConstants.RECORD_VOLUME_MIC;
                 volumeFactorApp = NativeConstants.RECORD_VOLUME_APP;

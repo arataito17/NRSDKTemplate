@@ -67,7 +67,7 @@ namespace NRKernal
         NumberLimited = 17,
 
         /// <summary> The display is not in stereo mode. </summary>
-        DisplayNoInStereoMode = 18,
+        DisplayNotInStereoMode = 18,
 
         /// <summary> The data is invalid. </summary>
         InvalidData = 19,

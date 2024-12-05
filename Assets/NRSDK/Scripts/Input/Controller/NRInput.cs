@@ -82,6 +82,9 @@ namespace NRKernal
         /// <summary> The drag threshold. </summary>
         [SerializeField]
         private float m_DragThreshold = 0.02f;
+        /// <summary> Allow hand activation when input is controller </summary>
+        [SerializeField]
+        private bool m_AllowIndividualHandEnable = false;
         /// <summary> Manager for visual. </summary>
         private ControllerVisualManager m_VisualManager;
         /// <summary> Number of last controllers. </summary>
@@ -111,6 +114,8 @@ namespace NRKernal
         private static ControllerHandEnum m_DomainHand = ControllerHandEnum.Right;
         /// <summary> The controller provider. </summary>
         private static ControllerProviderBase m_ControllerProvider;
+
+        private static ControllerProviderBase m_HandDataProvider;
         /// <summary> The states. </summary>
         private static ControllerState[] m_States = new ControllerState[MAX_CONTROLLER_STATE_COUNT]
         {
@@ -195,6 +200,8 @@ namespace NRKernal
         /// <value> The drag threshold. </value>
         public static float DragThreshold { get { return Instance.m_DragThreshold; } set { Instance.m_DragThreshold = value; } }
 
+        public static bool AllowIndividualHandEnable { get { return Instance.m_AllowIndividualHandEnable; } }
+
         /// <summary> Get the transform of the camera which controllers are following. </summary>
         /// <value> The camera center. </value>
         public static Transform CameraCenter { get { return Instance.GetCameraCenter(); } }
@@ -223,6 +230,13 @@ namespace NRKernal
         private void Start()
         {
             Init();
+            if (m_AllowIndividualHandEnable)
+            {
+                Hands.StartHandTracking(false);
+                m_HandDataProvider = new NRHandControllerProvider(null);
+                m_HandDataProvider.Start();
+                m_HandDataProvider.Resume();
+            }
         }
         private void Init()
         { 
@@ -304,6 +318,10 @@ namespace NRKernal
                 CheckControllerConnection();
                 CheckControllerRecentered();
                 CheckControllerButtonEvents();
+            }
+            if (m_HandDataProvider != null && m_ControllerProvider != m_HandDataProvider)
+            {
+                m_HandDataProvider.Update();
             }
         }
 
@@ -619,17 +637,43 @@ namespace NRKernal
 
             NRDebugger.Info("[NRInput] SwitchControllerProvider: {0} -> {1}", m_ControllerProvider?.GetType(), providerType);
 
+            if (AllowIndividualHandEnable)
+            {
+                if (m_ControllerProvider != null)
+                {
+                    if (providerType == typeof(NRHandControllerProvider))
+                    {
+                        m_ControllerProvider.Pause();
+                        m_ControllerProvider.Stop();
+                        m_ControllerProvider = null;
+                        m_ControllerProvider = m_HandDataProvider;
+                        ((NRHandControllerProvider)m_ControllerProvider).SetControllerState(m_States);
+                        return;
+                    }
+                }
+            }
+
             ControllerProviderBase nextControllerProvider = Activator.CreateInstance(providerType, new object[] { m_States }) as ControllerProviderBase;
             if (nextControllerProvider == null)
                 return;
 
             if (m_ControllerProvider != null)
             {
-                m_ControllerProvider.Pause();
-                NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Stop");
-                m_ControllerProvider.Stop();
-                NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Stoped");
-                m_ControllerProvider = null;
+                if(AllowIndividualHandEnable && m_ControllerProvider.GetType() == typeof(NRHandControllerProvider))
+                {
+                    m_HandDataProvider = m_ControllerProvider;
+                    ((NRHandControllerProvider)m_HandDataProvider).SetControllerState(null);
+                }
+                else
+                {
+                    m_ControllerProvider.Pause();
+                    NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Stop");
+                    m_ControllerProvider.Stop();
+                    NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Stoped");
+                    m_ControllerProvider = null;
+                    if(!AllowIndividualHandEnable)
+                        m_HandDataProvider = null;
+                }
             }
             
             m_ControllerProvider = nextControllerProvider;
@@ -642,6 +686,32 @@ namespace NRKernal
                 NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Resume");
                 m_ControllerProvider.Resume();
                 NRDebugger.Info($"[NRInput] SwitchControllerProvider: {m_ControllerProvider.GetType()} Resumed");
+            }
+        }
+        /// <summary> Enable or disable hand data when the CurrentInputSourceType is set to Controller.</summary>
+        /// <param name="toggleOn"></param>
+        public static void ToggleHandInputInControllerMode(bool toggleOn)
+        {
+            Instance.m_AllowIndividualHandEnable = toggleOn;
+            if (toggleOn)
+            {
+                if(CurrentInputSourceType != InputSourceEnum.Hands)
+                {
+                    Hands.StartHandTracking(false);
+                    m_HandDataProvider = new NRHandControllerProvider(null);
+                    m_HandDataProvider.Start();
+                    m_HandDataProvider.Resume();
+                }
+            }
+            else
+            {
+                if (CurrentInputSourceType == InputSourceEnum.Controller && m_HandDataProvider != null)
+                {
+                    Hands.StopHandTracking();
+                    m_HandDataProvider.Pause();
+                    m_HandDataProvider.Stop();
+                    m_HandDataProvider = null;
+                }
             }
         }
 
@@ -676,7 +746,15 @@ namespace NRKernal
                     success = Hands.StartHandTracking();
                     break;
                 case InputSourceEnum.Controller:
-                    success = Hands.StopHandTracking();
+                    if(AllowIndividualHandEnable)
+                    {
+                        SwitchControllerProvider(controllerProviderType);
+                        success = true;
+                    }
+                    else
+                    {
+                        success = Hands.StopHandTracking();
+                    }
                     break;
                 default:
                     break;

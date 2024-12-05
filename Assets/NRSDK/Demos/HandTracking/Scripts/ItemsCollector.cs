@@ -101,7 +101,7 @@ namespace NRKernal.NRExamples
                     if (rigid)
                     {
                         rigid.angularVelocity = Vector3.zero;
-                        rigid.velocity = Vector3.zero;
+                        rigid.linearVelocity = Vector3.zero;
                         rigid.constraints = RigidbodyConstraints.FreezeAll;
                         rigid.constraints = RigidbodyConstraints.None;
                     }

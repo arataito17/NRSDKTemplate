@@ -356,6 +356,7 @@ namespace NRKernal
         /// <summary> Regist notification. </summary>
         protected virtual void RegistNotification()
         {
+            NRDebugger.Info("[NRNotificationListener] RegistNotification.");
             if (NRSessionManager.Instance.NRSessionBehaviour.SessionConfig.EnableNotification)
             {
                 if (EnableLowPowerTips) BindNotificationWindow(new LowPowerNotification(this), LowPowerNotificationPrefab);
@@ -386,21 +387,23 @@ namespace NRKernal
         void Update()
         {
             // For Editor test
-            //if (Input.GetKeyDown(KeyCode.M))
-            //{
-            //    var notifys = NotificationDict.Keys.ToArray();
-            //    this.Dispath(notifys[UnityEngine.Random.Range(0, notifys.Length - 1)], Level.Middle);
-            //}
-            //if (Input.GetKeyDown(KeyCode.N))
-            //{
-            //    var notifys = NotificationDict.Keys.ToArray();
-            //    this.Dispath(notifys[UnityEngine.Random.Range(0, notifys.Length - 1)], Level.High);
-            //}
-            //if (Input.GetKeyDown(KeyCode.B))
-            //{
-            //    var notifys = NotificationDict.Keys.ToArray();
-            //    this.Dispath(notifys[3], Level.High);
-            //}
+#if FALSE
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                var notifys = NotificationDict.Keys.ToArray();
+                this.Dispath(notifys[UnityEngine.Random.Range(0, notifys.Length - 1)], Level.Middle);
+            }
+            if (Input.GetKeyDown(KeyCode.N))
+            {
+                var notifys = NotificationDict.Keys.ToArray();
+                this.Dispath(notifys[UnityEngine.Random.Range(0, notifys.Length - 1)], Level.High);
+            }
+            if (Input.GetKeyDown(KeyCode.B))
+            {
+                var notifys = NotificationDict.Keys.ToArray();
+                this.Dispath(notifys[3], Level.High);
+            }
+#endif
 
             m_TimeLast += Time.deltaTime;
             if (m_TimeLast < UpdateInterval)
@@ -434,6 +437,7 @@ namespace NRKernal
         /// <param name="lev">          The level.</param>
         public void Dispath(Notification notification, Level lev)
         {
+            NRDebugger.Info("[NRNotificationListener] Dispath:" + notification.GetType().ToString());
             if (lev >= notifLevel)
             {
                 NotificationQueue.Enqueue(new NotificationMsg()
@@ -469,9 +473,9 @@ namespace NRKernal
 
             if (prefab != null)
             {
-                NRDebugger.Info("[NRNotificationListener] Dispath:" + notification_obj.GetType().ToString());
-                NRNotificationWindow notification = Instantiate(prefab, transform);
-                notification.gameObject.SetActive(true);
+                NRDebugger.Info("[NRNotificationListener] OperateNotificationMsg:" + notification_obj.GetType().ToString());
+                NRNotificationWindow notifyWindow = Instantiate(prefab, transform);
+                notifyWindow.gameObject.SetActive(true);
 
                 var localizationGenerator = NRSessionManager.Instance.NotificationMessageGenerator;
                 string content = localizationGenerator?.Invoke(notification_obj.NotificationType, notification_obj);
@@ -481,7 +485,7 @@ namespace NRKernal
                     string title = ((NativeErrorNotification)notification_obj).ErrorTitle;
                     if (string.IsNullOrEmpty(content))
                         content = ((NativeErrorNotification)notification_obj).ErrorContent;
-                    notification.SetLevle(notification_level)
+                    notifyWindow.SetLevle(notification_level)
                                 .SetDuration(duration)
                                 .SetTitle(title)
                                 .SetContent(content)
@@ -490,13 +494,13 @@ namespace NRKernal
                 }
                 else
                 {
-                    notification.SetLevle(notification_level)
+                    notifyWindow.SetLevle(notification_level)
                                 .SetDuration(duration)
                                 .SetConfirmAction(onConfirm);
 
                     if (!string.IsNullOrEmpty(content))
-                        notification.SetContent(content);
-                    notification.Build();
+                        notifyWindow.SetContent(content);
+                    notifyWindow.Build();
                 }
             }
         }

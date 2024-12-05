@@ -111,7 +111,7 @@ namespace NRKernal
         /// Returns true if start hand tracking success
         /// </summary>
         /// <returns></returns>
-        internal bool StartHandTracking()
+        internal bool StartHandTracking(bool switchProvider = true)
         {
             if (!m_Inited)
             {
@@ -124,9 +124,12 @@ namespace NRKernal
             }
 
             NRDebugger.Info("[HandsManager] Hand Tracking Start: Success");
-            NRInput.SwitchControllerProvider(typeof(NRHandControllerProvider));
-            OnHandTrackingStarted?.Invoke();
-
+            if (switchProvider)
+            {
+                NRInput.SwitchControllerProvider(typeof(NRHandControllerProvider));
+                OnHandTrackingStarted?.Invoke();
+            }
+            
             return true;
         }
 
@@ -219,8 +222,11 @@ namespace NRKernal
 
         private void UpdateHandTracking()
         {
-            if (!IsRunning)
+            //if (!IsRunning)
+            //    return;
+            if (!m_Inited)
                 return;
+
             UpdateHandPointer();
             OnHandStatesUpdated?.Invoke();
         }

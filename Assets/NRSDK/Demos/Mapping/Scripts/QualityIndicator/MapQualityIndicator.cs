@@ -42,10 +42,16 @@ namespace NRKernal.NRExamples
             Instance.showMappingGuide();
         }
 
+        public static void PauseEstimateQuality()
+        {
+            Instance.pauseEstimateQuality();
+        }
+
         public static void InterruptMappingGuide()
         {
             Instance.interruptMappingGuide();
         }
+
         public static void FinishMappingGuide()
         {
             Instance.finishMappingGuide();
@@ -93,6 +99,7 @@ namespace NRKernal.NRExamples
         /// 是否是重建
         /// </summary>
         private bool m_isRemapping;
+        private bool m_Paused = false;
 
         protected override void Awake()
         {
@@ -109,6 +116,11 @@ namespace NRKernal.NRExamples
         void OnUpdate()
         {
             if (m_currentWorldAnchor == null)
+            {
+                return;
+            }
+
+            if (m_Paused)
             {
                 return;
             }
@@ -158,6 +170,12 @@ namespace NRKernal.NRExamples
             recycleBars();
             placeQualityBars();
             nextEstimateTime = Time.time + Settings.estimateIntervalSeconds;
+            m_Paused = false;
+        }
+
+        private void pauseEstimateQuality()
+        {
+            m_Paused = true;
         }
 
         private void interruptMappingGuide()
@@ -169,6 +187,7 @@ namespace NRKernal.NRExamples
             }
 
             recycleBars();
+            m_Paused = false;
         }
 
         private async void finishMappingGuide()
@@ -183,6 +202,7 @@ namespace NRKernal.NRExamples
             await Task.Delay(2000);
 
             recycleBars();
+            m_Paused = false;
         }
 
         private List<MapQualityBar> initalizeBars()

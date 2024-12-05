@@ -54,7 +54,7 @@
                 LowestFPS = (int)(1 / maxFrameTime);
 
                 lastTimeStamp = curTime;
-                // NRDebugger.Info("AverageFPS: {0}", AverageFPS);
+                NRDebugger.Info("AverageFPS: {0}", AverageFPS);
                 Reset();
             }
 

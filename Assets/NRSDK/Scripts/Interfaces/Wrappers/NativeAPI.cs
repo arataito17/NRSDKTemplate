@@ -68,8 +68,7 @@ namespace NRKernal
         internal static string GetVersion()
         {
             NRVersion version = new NRVersion();
-            NativeResult result = NativeApi.NRGetVersion(m_ApiHandler, ref version);
-            NativeErrorListener.Check(result, m_ApiHandler, "NRGetVersion");
+            NativeApi.NRGetVersion(m_ApiHandler, ref version);
             return version.ToString();
         }
 

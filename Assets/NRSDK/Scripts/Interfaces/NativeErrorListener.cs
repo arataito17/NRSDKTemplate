@@ -89,7 +89,7 @@ namespace NRKernal
                         case NativeResult.GetDisplayFailure:
                             throw new NRGetDisplayFailureError(result, module_tag + "MRSpace display device Not Find!");
                         case NativeResult.GetDisplayModeMismatch:
-                        case NativeResult.DisplayNoInStereoMode:
+                        case NativeResult.DisplayNotInStereoMode:
                             throw new NRDisplayModeMismatchError(result, module_tag + "Display mode mismatch, as MRSpace mode is needed!");
                         case NativeResult.UnSupportedHandtrackingCalculation:
                             throw new NRUnSupportedHandtrackingCalculationError(result, module_tag + "Not support hand tracking calculation!");

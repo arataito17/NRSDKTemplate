@@ -31,6 +31,8 @@ namespace NRKernal.Persistence
         private Text anchorState;
         [SerializeField]
         private Button remapBtn;
+        [SerializeField]
+        private Image processingIcon;
         private NRWorldAnchor m_NRWorldAnchor;
         private Material m_Material;
 
@@ -78,6 +80,8 @@ namespace NRKernal.Persistence
         {
             if (m_NRWorldAnchor != null)
             {
+                ShowProcessingIcon(true);
+                MapQualityIndicator.PauseEstimateQuality();
                 m_NRWorldAnchor.SaveAnchor(OnSaveSuccess, OnSaveFailure);
             }
         }
@@ -137,6 +141,7 @@ namespace NRKernal.Persistence
         private void OnSaveSuccess()
         {
             MapQualityIndicator.FinishMappingGuide();
+            ShowProcessingIcon(false);
         }
         private void OnSaveFailure()
         {
@@ -152,6 +157,7 @@ namespace NRKernal.Persistence
                 MapQualityIndicator.InterruptMappingGuide();
                 Toaster.Toast(PromptTexts.s_ReAddPrompt, 12000);
             }
+            ShowProcessingIcon(false);
         }
 
 
@@ -161,6 +167,12 @@ namespace NRKernal.Persistence
         {
             m_GuideDialog.Show();
             await m_GuideDialog.WaitUntilClosed();
+        }
+
+        private void ShowProcessingIcon(bool show)
+        {
+            Debug.Log($"ShowProcessingIcon {show}");
+            processingIcon.gameObject.SetActive(show);
         }
     }
 }

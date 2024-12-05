@@ -121,6 +121,7 @@ namespace NRKernal
             NRProjectConfigHelper.ApplySupportMultiResumeConfig();
 
             ApplySettingsToConfig();
+            FixAndroidPlayerSettings();
             AutoGenerateAndroidGradleTemplate();
             AssetDatabase.Refresh();
         }
@@ -154,29 +155,31 @@ namespace NRKernal
         [MenuItem("NRSDK/InitVideoPlayerDemoEnv")]
         public static void InitVideoPlayerDemoEnv()
         {
-            string javaDir = "";
+            string targetDir = "";
             string[] assets = AssetDatabase.FindAssets("AndroidMediaPlayer");
             foreach (var asset in assets)
             {
                 string path = AssetDatabase.GUIDToAssetPath(asset);
-                if (path.Contains("NRSDK") && path.EndsWith(".java"))
+                if (path.Contains("NRSDK") && path.EndsWith(".template.txt"))
                 {
-                    javaDir = Path.GetDirectoryName(path);
+                    targetDir = Path.GetDirectoryName(path);
                     break;
                 }
             }
 
-            if (!string.IsNullOrEmpty(javaDir))
+            if (!string.IsNullOrEmpty(targetDir))
             {
-                string[] files = Directory.GetFiles(javaDir, "*.java");
+                string[] files = Directory.GetFiles(targetDir, "*.template.txt");
                 foreach (var file in files)
                 {
-                    PluginImporter importer = (PluginImporter)AssetImporter.GetAtPath(file);
-                    if (importer != null)
-                    {
-                        importer.SetCompatibleWithPlatform(BuildTarget.Android, true);
-                        importer.SaveAndReimport();
-                    }
+                    string content = File.ReadAllText(file);
+                    string javaFileName = file.Substring(0, file.Length - 13) + ".java";
+                    File.WriteAllText(javaFileName, content);
+                    AssetDatabase.Refresh();
+
+                    PluginImporter importer = (PluginImporter)AssetImporter.GetAtPath(javaFileName);
+                    importer.SetCompatibleWithPlatform(BuildTarget.Android, true);
+                    importer.SaveAndReimport();
                 }
             }
 
@@ -260,6 +263,63 @@ namespace NRKernal
             {
                 AutoGenerateGradleProperties("gradleTemplate.properties");
             }
+
+#if UNITY_6000_0_OR_NEWER
+            AutoSetGradleTemplatePackingOptions("mainTemplate.gradle");
+            AutoSetGradleTemplatePackingOptions("launcherTemplate.gradle");
+#endif
+        }
+
+        private static void FixAndroidPlayerSettings()
+        {
+            //Unity6 use nractivitylife_6-release.aar instead of nractivitylife-release.aar
+            bool IsUnity6 = false;
+#if UNITY_6000_0_OR_NEWER
+            IsUnity6 = true;
+            PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.Activity;
+#endif
+            {
+                string[] assets = AssetDatabase.FindAssets("nractivitylife-release");
+                if(assets != null && assets.Length > 0)
+                {
+                    foreach (var asset in assets)
+                    {
+                        string filePath = AssetDatabase.GUIDToAssetPath(asset);
+                        if (Path.GetFileNameWithoutExtension(filePath) == "nractivitylife-release")
+                        {
+                            PluginImporter importer = (PluginImporter)AssetImporter.GetAtPath(filePath);
+                            if (importer != null)
+                            {
+                                importer.SetCompatibleWithPlatform(BuildTarget.Android, !IsUnity6);
+                                importer.SaveAndReimport();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            {
+                string[] assets = AssetDatabase.FindAssets("nractivitylife_6-release");
+                if (assets != null && assets.Length > 0)
+                {
+                    foreach (var asset in assets)
+                    {
+                        string filePath = AssetDatabase.GUIDToAssetPath(asset);
+                        if (Path.GetFileNameWithoutExtension(filePath) == "nractivitylife_6-release")
+                        {
+                            PluginImporter importer = (PluginImporter)AssetImporter.GetAtPath(filePath);
+                            if (importer != null)
+                            {
+                                importer.SetCompatibleWithPlatform(BuildTarget.Android, IsUnity6);
+                                importer.SaveAndReimport();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -317,6 +377,19 @@ namespace NRKernal
             string gradleInProject = Application.dataPath + "/Plugins/Android/" + templateFileName;
             AndroidGradleTemplate gradleTmp = new AndroidGradleTemplate(gradleInProject);
             gradleTmp.AddSupport("android.useAndroidX");
+            gradleTmp.PreprocessGradleFile();
+        }
+
+        private static void AutoSetGradleTemplatePackingOptions(string templateFileName)
+        {
+            if (!UseCustomGradleFile(templateFileName))
+            {
+                return;
+            }
+            string gradleInProject = Application.dataPath + "/Plugins/Android/" + templateFileName;
+            AndroidGradleTemplate gradleTmp = new AndroidGradleTemplate(gradleInProject);
+            gradleTmp.SetPackingOptions("pickFirst '**/*.so'");
+            gradleTmp.SetPackingOptions("doNotStrip '*/arm64-v8a/*.so'");
             gradleTmp.PreprocessGradleFile();
         }
     }

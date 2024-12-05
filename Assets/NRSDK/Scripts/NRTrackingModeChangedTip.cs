@@ -7,6 +7,8 @@
 * 
 *****************************************************************************/
 
+using System;
+
 namespace NRKernal
 {
     using UnityEngine;
@@ -20,13 +22,9 @@ namespace NRKernal
         [SerializeField]
         private GameObject m_PauseRendererGroup;
         [SerializeField]
-        private Renderer m_FullScreenMask;
+        private SpriteRenderer m_FullScreenMask;
         [SerializeField]
         private AnimationCurve m_AnimationCurve;
-        private Mesh m_Mesh;
-        private List<Vector3> m_Verts = new List<Vector3>();
-        private List<Vector2> m_UV = new List<Vector2>();
-        private List<int> m_Tris = new List<int>();
         private Coroutine m_FadeInCoroutine;
         private Coroutine m_FadeOutCoroutine;
 
@@ -48,51 +46,24 @@ namespace NRKernal
             resolution = NRFrame.GetDeviceResolution(NativeDevice.LEFT_DISPLAY);
 #endif
 
-            lostTrackingTip.Initialize();
             NRDebugger.Info("[NRTrackingModeChangedTip] Created");
             return lostTrackingTip;
         }
 
+        private void Awake()
+        {
+            NRDebugger.Info("[NRTrackingModeChangedTip] Awake");
+            Initialize();
+        }
+
         private void Initialize()
         {
-            if (m_Mesh == null)
-            {
-                m_Mesh = new Mesh();
-                m_Mesh.Clear();
-                m_Verts.Clear();
-                m_UV.Clear();
-                m_Tris.Clear();
-                m_Verts.Add(new Vector3(-1, -1, 0));
-                m_Verts.Add(new Vector3(-1, 1, 0));
-                m_Verts.Add(new Vector3(1, 1, 0));
-                m_Verts.Add(new Vector3(1, -1, 0));
-
-                m_UV.Add(new Vector2(0, 0));
-                m_UV.Add(new Vector2(0, 1));
-                m_UV.Add(new Vector2(1, 1));
-                m_UV.Add(new Vector2(1, 0));
-
-                m_Tris.Add(0);
-                m_Tris.Add(1);
-                m_Tris.Add(2);
-                m_Tris.Add(2);
-                m_Tris.Add(3);
-                m_Tris.Add(0);
-
-                m_Mesh.SetVertices(m_Verts);
-                m_Mesh.SetUVs(0, m_UV);
-                m_Mesh.SetTriangles(m_Tris, 0);
-                m_Mesh.UploadMeshData(false);
-
-                m_FullScreenMask.gameObject.GetComponent<MeshFilter>().sharedMesh = m_Mesh;
-            }
-
+            m_FullScreenMask.sortingOrder = 9999;
         }
 
         public void Show()
         {
             gameObject.SetActive(true);
-            m_FullScreenMask.gameObject.SetActive(false);
             if (m_FadeInCoroutine != null)
             {
                 NRKernalUpdater.Instance.StopCoroutine(m_FadeInCoroutine);
@@ -102,7 +73,6 @@ namespace NRKernal
                 NRKernalUpdater.Instance.StopCoroutine(m_FadeOutCoroutine);
             }
 
-            m_PauseRendererGroup.SetActive(true);
             m_FadeInCoroutine = StartCoroutine(FadeIn());
 
         }
@@ -119,12 +89,6 @@ namespace NRKernal
             m_FadeOutCoroutine = StartCoroutine(FadeOut());
         }
 
-        public void SetMessage(string msg)
-        {
-            //m_Lable.text = msg;
-        }
-
-
         void LateUpdate()
         {
             //避免Mesh被视椎体裁减
@@ -135,31 +99,20 @@ namespace NRKernal
                 m_PauseRendererGroup.transform.rotation = centerAnchor.rotation;
             }
         }
-
-
-        void OnDestroy()
-        {
-            if (m_Mesh != null)
-            {
-                UnityEngine.Object.Destroy(m_Mesh);
-                m_Mesh = null;
-            }
-        }
-
+        
         private IEnumerator FadeIn()
         {
-            NRSessionManager.Instance.NRSwapChainMan.SetRefreshScreen(false);
+            m_FullScreenMask.sharedMaterial.color = Color.black;
+            
             yield return 0;
         }
 
         private IEnumerator FadeOut()
         {
-            m_FullScreenMask.gameObject.SetActive(true);
-            m_FullScreenMask.sharedMaterial.SetColor("_Color", new Color(1f, 1f, 1f, 0));
+            m_FullScreenMask.sharedMaterial.color = Color.black;
             yield return null;
             yield return null;
             yield return null;
-            NRSessionManager.Instance.NRSwapChainMan.SetRefreshScreen(true);
 
             var FadeOutDuring = 1f;
             var TimeElapse = 0f;
@@ -167,7 +120,8 @@ namespace NRKernal
             {
                 float percent = TimeElapse / FadeOutDuring;
                 percent = m_AnimationCurve.Evaluate(percent);
-                m_FullScreenMask.sharedMaterial.SetColor("_Color", new Color(1f, 1f, 1f, percent));
+                percent = Mathf.Clamp(1.0f - percent, 0, 1);
+                m_FullScreenMask.sharedMaterial.color =  new Color(0f, 0f, 0f, percent);
                 yield return null;
 
                 TimeElapse += Time.deltaTime;

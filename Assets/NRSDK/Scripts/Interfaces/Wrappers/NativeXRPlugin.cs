@@ -48,6 +48,11 @@ namespace NRKernal
             NativeApi.SetLogLevel(logLevel);
         }
 
+        internal static void SetTargetRenderMode(int targetRenderMode)
+        {
+            NativeApi.SetTargetRenderMode(targetRenderMode);
+        }
+
         internal static void SetMonoMode(bool monoMode)
         {
             NativeApi.SetMonoMode(monoMode);
@@ -169,8 +174,10 @@ namespace NRKernal
             public static extern void SetLogLevel(int logLevel);
 
             [DllImport(NativeConstants.NRNativeXRPlugin, CharSet = CharSet.Auto)]
-            public static extern void SetMonoMode(bool monoMode);
+            public static extern void SetTargetRenderMode(int targetRenderMode);
 
+            [DllImport(NativeConstants.NRNativeXRPlugin, CharSet = CharSet.Auto)]
+            public static extern void SetMonoMode(bool monoMode);
 
             [DllImport(NativeConstants.NRNativeXRPlugin, CharSet = CharSet.Auto)]
             public extern static void PopulateFrameHandle(UInt64 frameHandle);

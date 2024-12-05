@@ -45,9 +45,12 @@ namespace NRKernal
             }
             m_NativeHandTracking.Update(GetHandState(0), GetHandState(1));
 
-            for (int i = 0; i < states.Length; i++)
+            if(states != null)
             {
-                UpdateControllerState(i, GetHandState(i));
+                for (int i = 0; i < states.Length; i++)
+                {
+                    UpdateControllerState(i, GetHandState(i));
+                }
             }
         }
 
@@ -79,6 +82,11 @@ namespace NRKernal
 
             EnableHandTracking(false);
             NRSessionManager.Instance.NRHMDPoseTracker.OnModeChanged -= OnTrackingModeChanged;
+        }
+
+        public void SetControllerState(ControllerState[] states)
+        {
+            this.states = states;
         }
 
         private void OnTrackingModeChanged(NRHMDPoseTracker.TrackingModeChangedResult result)

@@ -24,6 +24,7 @@ namespace NRKernal
         static NRProjectConfigHelper()
         {
             EditorApplication.update += OnceUpdate;
+            ApplyEnableNativeSessionManagerConfig(GetProjectConfig());
         }
 
         static void OnceUpdate()

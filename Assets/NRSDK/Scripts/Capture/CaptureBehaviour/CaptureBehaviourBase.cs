@@ -12,6 +12,7 @@ namespace NRKernal.Record
     using System;
     using UnityEngine;
     using NRKernal;
+    using System.Collections.Generic;
 
     /// <summary> A capture behaviour base. </summary>
     public class CaptureBehaviourBase : MonoBehaviour, IFrameConsumer
@@ -20,6 +21,7 @@ namespace NRKernal.Record
         [SerializeField] Transform RGBCameraRig;
         /// <summary> The capture camera. </summary>
         public Camera CaptureCamera;
+        public Camera CaptureCamera2;
         private FrameCaptureContext m_FrameCaptureContext;
 
         /// <summary> Gets the context. </summary>
@@ -45,17 +47,22 @@ namespace NRKernal.Record
                 Vector3 eulerAngles = CaptureCamera.transform.eulerAngles;
                 eulerAngles.z = 0;
                 CaptureCamera.transform.eulerAngles = eulerAngles;
+                Vector3 eulerAngles2 = CaptureCamera2.transform.eulerAngles;
+                eulerAngles2.z = 0;
+                CaptureCamera2.transform.eulerAngles = eulerAngles2;
             }
         }
 
         public void SetCameraMask(int mask)
         {
             CaptureCamera.cullingMask = mask;
+            CaptureCamera2.cullingMask = mask;
         }
 
         public void SetBackGroundColor(Color color)
         {
-            this.CaptureCamera.backgroundColor = color; //new Color(color.r, color.g, color.b, 0);
+            this.CaptureCamera.backgroundColor = color;
+            this.CaptureCamera2.backgroundColor = color;
         }
 
         /// <summary> Executes the 'frame' action. </summary>
@@ -89,12 +96,21 @@ namespace NRKernal.Record
         private void UpdateHeadPoseByTimestamp(UInt64 timestamp)
         {
             Pose head_pose = Pose.identity;
-            var result = NRSessionManager.Instance.NRHMDPoseTracker.GetHeadPoseByTimeInUnityWorld(ref head_pose, timestamp);
+            var poseTracker = NRSessionManager.Instance.NRHMDPoseTracker;
+            var result = poseTracker.GetHeadPoseByTimeInUnityWorld(ref head_pose, timestamp);
             if (result)
             {
                 // NRDebugger.Info("UpdateHeadPoseByTimestamp: timestamp={0}, pos={1}", timestamp, head_pose.ToString("F2"));
-                RGBCameraRig.transform.position = head_pose.position;
-                RGBCameraRig.transform.rotation = head_pose.rotation;
+                if (poseTracker.UseRelative)
+                {
+                    RGBCameraRig.transform.localPosition = head_pose.position;
+                    RGBCameraRig.transform.localRotation = head_pose.rotation;
+                }
+                else
+                {
+                    RGBCameraRig.transform.position = head_pose.position;
+                    RGBCameraRig.transform.rotation = head_pose.rotation;
+                }
             }
         }
     }

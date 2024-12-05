@@ -41,7 +41,16 @@ namespace NRKernal
         }
         /// <summary> Information describing the frame. </summary>
         private YUVTextureFrame m_FrameData;
+        internal NRRgbCamera RGBCamera
+        {
+            get
+            {
+                return NativeCameraProxy as NRRgbCamera;
+            }
+        }
 
+        private RenderTexture m_RenderTexture;
+        private Material m_BlitMaterial;
         /// <summary> Creates the tex. </summary>
         private void CreateTex()
         {
@@ -64,10 +73,27 @@ namespace NRKernal
             }
             return m_FrameData;
         }
+        public RenderTexture GetRGBTexture()
+        {
+            if(m_RenderTexture == null)
+            {
+                m_RenderTexture = RenderTexture.GetTemporary(Width, Height);
+                m_RenderTexture.Create(); 
+                m_BlitMaterial = new Material(Resources.Load<Shader>("Record/Shaders/NormalBlendYUV"));
+            }
+
+            var textureFrame = GetTexture();
+            m_BlitMaterial.SetTexture("_MainTex", textureFrame.textureY);
+            m_BlitMaterial.SetTexture("_UTex", textureFrame.textureU);
+            m_BlitMaterial.SetTexture("_VTex", textureFrame.textureV);
+            Graphics.Blit(null, m_RenderTexture, m_BlitMaterial);
+            return m_RenderTexture;
+        }
 
         /// <summary> Default constructor. </summary>
-        public NRRGBCamTextureYUV() : base(CameraImageFormat.YUV_420_888)
+        public NRRGBCamTextureYUV() 
         {
+            CreateProxy();
             CreateTex();
         }
 
@@ -75,45 +101,60 @@ namespace NRKernal
         /// <param name="frame"> .</param>
         protected override void OnRawDataUpdate(FrameRawData frame)
         {
-            LoadYUVTexture(frame);
-            OnUpdate?.Invoke(m_FrameData);
+            if (LoadYUVTexture(frame))
+            {
+                if (m_RenderTexture != null)
+                    GetRGBTexture();
+                OnUpdate?.Invoke(m_FrameData);
+            }
         }
 
         /// <summary> Loads yuv texture. </summary>
         /// <param name="frame"> The frame.</param>
-        private void LoadYUVTexture(FrameRawData frame)
+        private bool LoadYUVTexture(FrameRawData frame)
         {
             if (frame.data == null || frame.data.Length == 0)
             {
                 NRDebugger.Error("[NRRGBCamTextureYUV] LoadYUVTexture error: frame is null");
-                return;
+                return false;
             }
 
-            int size = frame.data.Length;
-            if (m_FrameData.YBuf == null)
+            try
             {
-                m_FrameData.YBuf = new byte[size * 2 / 3];
-                m_FrameData.UBuf = new byte[size / 6];
-                m_FrameData.VBuf = new byte[size / 6];
+                NRDebugger.Info($"[NRRGBCamTextureYUV] data.length={frame.data.Length} timestamp={frame.timeStamp} Width={Width} Height={Height} dataSize should be{Width*Height+(Width*Height/2)}");
+                int size = frame.data.Length;
+                if (m_FrameData.YBuf == null)
+                {
+                    m_FrameData.YBuf = new byte[size * 2 / 3];
+                    m_FrameData.UBuf = new byte[size / 6];
+                    m_FrameData.VBuf = new byte[size / 6];
+                }
+                if (m_FrameData.textureY == null)
+                {
+                    CreateTex();
+                }
+                m_FrameData.timeStamp = frame.timeStamp;
+                m_FrameData.gain = frame.gain;
+                m_FrameData.exposureTime = frame.exposureTime;
+                Array.Copy(frame.data, 0, m_FrameData.YBuf, 0, m_FrameData.YBuf.Length);
+                Array.Copy(frame.data, m_FrameData.YBuf.Length, m_FrameData.UBuf, 0, m_FrameData.UBuf.Length);
+                Array.Copy(frame.data, m_FrameData.YBuf.Length + m_FrameData.UBuf.Length, m_FrameData.VBuf, 0, m_FrameData.VBuf.Length);
+
+                m_FrameData.textureY.LoadRawTextureData(m_FrameData.YBuf);
+                m_FrameData.textureU.LoadRawTextureData(m_FrameData.UBuf);
+                m_FrameData.textureV.LoadRawTextureData(m_FrameData.VBuf);
+
+                m_FrameData.textureY.Apply();
+                m_FrameData.textureU.Apply();
+                m_FrameData.textureV.Apply();
             }
-            if (m_FrameData.textureY == null)
+            catch (Exception ex)
             {
-                CreateTex();
+                NRDebugger.Info($"[NRRGBCamTextureYUV] {ex}");
+                return false;
             }
-            m_FrameData.timeStamp = frame.timeStamp;
-            m_FrameData.gain = frame.gain;
-            m_FrameData.exposureTime = frame.exposureTime;
-            Array.Copy(frame.data, 0, m_FrameData.YBuf, 0, m_FrameData.YBuf.Length);
-            Array.Copy(frame.data, m_FrameData.YBuf.Length, m_FrameData.UBuf, 0, m_FrameData.UBuf.Length);
-            Array.Copy(frame.data, m_FrameData.YBuf.Length + m_FrameData.UBuf.Length, m_FrameData.VBuf, 0, m_FrameData.VBuf.Length);
 
-            m_FrameData.textureY.LoadRawTextureData(m_FrameData.YBuf);
-            m_FrameData.textureU.LoadRawTextureData(m_FrameData.UBuf);
-            m_FrameData.textureV.LoadRawTextureData(m_FrameData.VBuf);
-
-            m_FrameData.textureY.Apply();
-            m_FrameData.textureU.Apply();
-            m_FrameData.textureV.Apply();
+            return true;
         }
 
         /// <summary> On texture stopped. </summary>
@@ -129,6 +170,9 @@ namespace NRKernal
             m_FrameData.YBuf = null;
             m_FrameData.UBuf = null;
             m_FrameData.VBuf = null;
+            if(m_RenderTexture != null)
+                RenderTexture.ReleaseTemporary(m_RenderTexture);
+            m_RenderTexture = null;
         }
     }
 }

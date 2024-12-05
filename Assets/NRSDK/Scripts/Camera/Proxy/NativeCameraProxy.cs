@@ -191,21 +191,6 @@ namespace NRKernal
             NRDebugger.Debug("[NativeCamera] Regist:" + m_ActiveTextures.Count);
         }
 
-        public static CameraImageFormat GetActiveCameraImageFormat(string id)
-        {
-            NativeCameraProxy controller = CameraProxyFactory.GetInstance(id);
-            if (controller != null && controller.ActiveTextures != null && controller.ActiveTextures.Count > 0)
-            {
-                NRDebugger.Info("[NativeCamera] Use the first texture format:" + controller.ActiveTextures[0].ImageFormat.ToString());
-                return controller.ActiveTextures[0].ImageFormat;
-            }
-            else
-            {
-                NRDebugger.Info("[NativeCamera] Use the default texture format: RGB_888");
-                return CameraImageFormat.RGB_888;
-            }
-        }
-
         /// <summary> Removes the given tex. </summary>
         /// <param name="tex"> The tex to remove.</param>
         public void Remove(CameraModelView tex)
@@ -215,23 +200,6 @@ namespace NRKernal
                 m_ActiveTextures.Remove(tex);
             }
             NRDebugger.Debug("[NativeCamera] Remove:" + m_ActiveTextures.Count);
-        }
-
-        /// <summary> Sets image format. </summary>
-        /// <param name="format"> Describes the format to use.</param>
-        public void SetImageFormat(CameraImageFormat format)
-        {
-            if (!m_IsInitialized)
-            {
-                Initialize();
-            }
-            if (m_IsImageFormatSet)
-            {
-                return;
-            }
-
-            m_IsImageFormatSet = CameraDataProvider.SetImageFormat(format);
-            NRDebugger.Info("[NativeCameraProxy] SetImageFormat : " + format.ToString());
         }
 
         /// <summary> Start to play camera. </summary>

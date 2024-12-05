@@ -76,7 +76,7 @@ namespace NRKernal.NRExamples
             m_DistanceAdjSlider.value = default_distance;
             m_DistanceAdjSlider.onValueChanged.AddListener(OnSlideValueChange);
 
-            m_AutoFucusToggle.isOn = m_FocusMan != null;
+            m_AutoFucusToggle.isOn = m_FocusMan != null && m_FocusMan.isActiveAndEnabled;
             m_AutoFucusToggle.onValueChanged.AddListener(OnToggleChanged);
 
             m_AutoFocusPlaneNormToggle.isOn = m_FocusMan != null ? m_FocusMan.adjustFocusPlaneNorm : false;
@@ -105,9 +105,18 @@ namespace NRKernal.NRExamples
 
         void OnToggleChanged(bool isOn)
         {
+            if (m_FocusMan == null)
+            {
+                m_FocusMan = GameObject.FindObjectOfType<FocusManager>();
+            }
+            
             if (m_FocusMan != null)
             {
                 m_FocusMan.enabled = isOn;
+            }
+            else if (isOn)
+            {
+                m_FocusMan = gameObject.AddComponent<FocusManager>();
             }
         }
 

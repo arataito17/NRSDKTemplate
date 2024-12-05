@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -259,8 +259,10 @@ namespace NRKernal
             m_ModeChangeLock = true;
             AsyncTaskExecuter.Instance.RunAction(() =>
             {
-                //Thread.Sleep(20);
-                NRDebugger.Info("[NRHMDPoseTracker] Beg ChangeMode: {0} => {1}", m_TrackingType, trackingtype);
+                int targetFrameRate = Math.Min(NRFrame.targetFrameRate, 60);
+                int syncDuration = 1000 / targetFrameRate * 2;
+                Thread.Sleep(syncDuration);
+                NRDebugger.Info("[NRHMDPoseTracker] Beg ChangeMode: {0} => {1}, after {2}", m_TrackingType, trackingtype, syncDuration);
                 result.success = NRSessionManager.Instance.TrackingSubSystem.SwitchTrackingType(GetTrackingSubsystemDescriptor(trackingtype));
 
                 if (result.success)
@@ -671,6 +673,18 @@ namespace NRKernal
             //     headPose.ToString("F4"), headPose.rotation.eulerAngles.ToString("F4"));
 
             return true;
+        }
+
+        public Pose GetBaseHeadPose()
+        {
+            if (m_TrackingType == TrackingType.Tracking0DofStable || m_TrackingType == TrackingType.Tracking0Dof)
+            {
+                Pose headPose = HeadRotFromCenter;
+                headPose = cachedWorldMatrix.Equals(Matrix4x4.identity) ? headPose : ApplyWorldMatrix(headPose);
+                return headPose;
+            }
+            else
+                return new Pose(transform.position, transform.rotation);
         }
 
         /// <summary> Updates the pose by tracking type. </summary>

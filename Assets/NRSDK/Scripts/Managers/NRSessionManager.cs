@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -62,7 +62,7 @@ namespace NRKernal
                 if(m_SessionState != value)
                 {
                     m_SessionState = value;
-#if ENABLE_NATIVE_SESSION_MANAGER
+#if ENABLE_NATIVE_SESSION_MANAGER && !UNITY_EDITOR
                     NativeSessionManager.SetSessionState(m_SessionState);
 #endif
                 }
@@ -155,9 +155,9 @@ namespace NRKernal
         public static HMDPoseTrackerModeChangeEvent OnChangeTrackingMode;
 
         /// <summary> Event queue for all listeners interested in OnGlassesStateChanged events. </summary>
-        public static GlassesEvent OnGlassesStateChanged;
+        public static GlassesEvent_WearingState OnGlassesStateChanged;
         /// <summary> Event queue for all listeners interested in OnGlassesDisconnect events. </summary>
-        public static GlassesDisconnectEvent OnGlassesDisconnect;
+        public static GlassesEvent_Disconnect OnGlassesDisconnect;
 
         /// <summary> Event queue for all listeners interested in kernal error, 
         /// such as NRRGBCameraDeviceNotFindError, NRPermissionDenyError, NRUnSupportedHandtrackingCalculationError. </summary>
@@ -474,8 +474,14 @@ namespace NRKernal
                 return;
             }
 
-            if (NRHMDPoseTracker.IsTrackModeChanging || NRHMDPoseTracker.TrackingMode == TrackingType.Tracking0Dof)
+            if (NRHMDPoseTracker.IsTrackModeChanging)
                 return;
+
+            if(NRHMDPoseTracker.TrackingMode == TrackingType.Tracking0Dof)
+            {
+                NRFrame.ResetHeadPose();
+                return;
+            }
 
             NRFrame.OnPreUpdate(ref m_LostTrackingReason);
         }

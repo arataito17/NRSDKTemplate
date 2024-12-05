@@ -20,6 +20,10 @@ namespace NRKernal
         XrealAIR2_PRO = 3,
         XrealAIR2 = 4,
         XrealAIR2_ULTRA = 5,
+
+        Xreal_One = 10,
+        Xreal_One_ProM = 11,
+        Xreal_One_ProL = 12,
         Xreal_HONOR_AIR = 1001,
     }
 

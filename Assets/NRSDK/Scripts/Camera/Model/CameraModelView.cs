@@ -87,23 +87,15 @@ namespace NRKernal
             }
         }
 
-        public CameraImageFormat ImageFormat { get; protected set; }
-
-        /// <summary> Default constructor. </summary>
-        public CameraModelView() { }
-
         /// <summary> Constructor. </summary>
-        /// <param name="format"> Camera image format.</param>
-        public CameraModelView(CameraImageFormat format)
+        public virtual void CreateProxy()
         {
-            ImageFormat = format;
-            this.CreateRGBCameraProxy(format);
+            this.CreateRGBCameraProxy();
             m_NativeCameraProxy.Regist(this);
+
         }
 
-        /// <summary> Use RGB_888 format default. </summary>
-        /// <param name="format"> (Optional) Camera image format.</param>
-        protected void CreateRGBCameraProxy(CameraImageFormat format = CameraImageFormat.RGB_888)
+        protected void CreateRGBCameraProxy()
         {
             if (m_NativeCameraProxy != null)
             {
@@ -111,7 +103,6 @@ namespace NRKernal
             }
 
             m_NativeCameraProxy = CameraProxyFactory.CreateRGBCameraProxy();
-            m_NativeCameraProxy.SetImageFormat(format);
         }
 
         /// <summary> Plays this object. </summary>

@@ -59,7 +59,7 @@
 					float r = ycol.a + 1.4022 * vcol.a - 0.7011;
 					float g = ycol.a - 0.3456 * ucol.a - 0.7145 * vcol.a + 0.53005;
 					float b = ycol.a + 1.771 * ucol.a - 0.8855;
-					fixed4 col_bg = fixed4(b, g, r, 1);
+					fixed4 col_bg = fixed4(r, g, b, 1);
 					col_bg.rgb = GammaToLinearSpace(col_bg.rgb);
 					
 					return col_bg;

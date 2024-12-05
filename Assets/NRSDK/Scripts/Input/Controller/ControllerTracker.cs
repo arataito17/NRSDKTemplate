@@ -12,7 +12,7 @@ namespace NRKernal
     using System.Collections;
     using System.Collections.Generic;
     using UnityEngine;
-    
+
     /// <summary> A controller tracker. </summary>
     public class ControllerTracker : MonoBehaviour
     {
@@ -22,8 +22,10 @@ namespace NRKernal
         public NRPointerRaycaster raycaster;
         /// <summary> The model anchor. </summary>
         public Transform modelAnchor;
-
-        public bool recenterPitch = true;
+        /// <summary> True if correction pitch axis when recent </summary>
+        public bool recenterPitch = false;
+        /// <summary> True if the ray debounce mode is enabled </summary>
+        public bool debounceMode = false;
         /// <summary> True if is enabled, false if not. </summary>
         private bool m_IsEnabled;
         /// <summary> True if is 6dof, false if not. </summary>
@@ -43,18 +45,28 @@ namespace NRKernal
             }
         }
 
-        private const float StillTime = 3.0f; //静止时间
-        private float m_NoMovementTimer = 0; //没有移动计时器
-        private float m_MovementThreshold = 0.3f; //度
+        /// <summary> Maximum static time </summary>
+        private const float StillTime = 3.0f;
+        /// <summary> Static time timer </summary>
+        private float m_NoMovementTimer = 0;
+        /// <summary> static threshold </summary>
+        private float m_MovementThreshold = 0.3f;
+
         private Quaternion m_MovementRotation = Quaternion.identity;
         private bool m_Moveable = true;
-
-        private float m_ReviseAngle = -7f;//双目时，需射线向上旋转 x 角度
+        /// <summary> Correct the correction angle when NRFrame.MonoMode is false </summary>
+        private float m_ReviseAngle = -7f;
         private Quaternion m_ReviseRotation = Quaternion.identity;
-        
+
         private Quaternion controllerInverse = Quaternion.identity;
         private Quaternion rollRotation = Quaternion.identity;
         private Quaternion pitchRotation = Quaternion.identity;
+
+        //debounceMode parameters 
+        private Quaternion m_LastHandRotation = Quaternion.identity;
+        private float m_LerpSpeed = 5.0f;
+        private float m_SlowDownTimer = 0;
+        private bool m_Debouncing = false;
         /// <summary> Awakes this object. </summary>
         private void Awake()
         {
@@ -81,7 +93,7 @@ namespace NRKernal
         }
 
         private void Start()
-        {            
+        {
             m_Is6dof = NRInput.GetControllerAvailableFeature(ControllerAvailableFeature.CONTROLLER_AVAILABLE_FEATURE_POSITION)
                 && NRInput.GetControllerAvailableFeature(ControllerAvailableFeature.CONTROLLER_AVAILABLE_FEATURE_ROTATION);
         }
@@ -102,7 +114,7 @@ namespace NRKernal
             modelAnchor.gameObject.SetActive(m_IsEnabled);
             if (m_IsEnabled)
             {
-                if(NRInput.RaycastersUpdatePose)
+                if (NRInput.RaycastersUpdatePose)
                     TrackPose();
 
                 if (Quaternion.Angle(transform.rotation, m_MovementRotation) >= m_MovementThreshold || NRInput.GetButton(ControllerButton.TRIGGER))
@@ -119,25 +131,29 @@ namespace NRKernal
                         if (m_NoMovementTimer >= StillTime)
                         {
                             m_Moveable = false;
+                            m_MovementRotation = transform.rotation;
                         }
                     }
-                    else if(Time.frameCount % 30 == 0)
+                    else if (Time.frameCount % 30 == 0)
                     {
                         m_MovementRotation = transform.rotation;
                     }
                 }
             }
-            
         }
 
         /// <summary> Track pose. </summary>
         private void TrackPose()
         {
-            Pose poseInAPIWorld = new Pose(NRInput.GetPosition(defaultHandEnum), NRInput.GetRotation(defaultHandEnum));
+            Pose poseInAPIWorld;
+            if (debounceMode)
+                poseInAPIWorld = new Pose(NRInput.GetPosition(defaultHandEnum), GetLerpRotation());
+            else
+                poseInAPIWorld = new Pose(NRInput.GetPosition(defaultHandEnum), NRInput.GetRotation(defaultHandEnum));
             if (recenterPitch)
                 poseInAPIWorld.rotation = poseInAPIWorld.rotation * controllerInverse;
             Pose pose = ApplyWorldMatrix(poseInAPIWorld);
-            
+
             if (NRFrame.MonoMode)
             {
                 transform.position = NRInput.CameraCenter.position;
@@ -151,6 +167,41 @@ namespace NRKernal
                 else
                     transform.rotation = pose.rotation;
             }
+
+            if (NRDebugger.logLevel <= LogLevel.Debug)
+                NRDebugger.Info("[ControllerTracker] TrackPose input rotation={0}, result rotation={1}", NRInput.GetRotation(defaultHandEnum), transform.rotation);
+        }
+
+        private Quaternion GetLerpRotation()
+        {
+            float angle = Quaternion.Angle(m_LastHandRotation, NRInput.GetRotation(defaultHandEnum));
+            if (m_Debouncing && angle > 2.78f)
+            {
+                m_Debouncing = false;
+            }
+            if (m_Debouncing)
+            {
+                m_LerpSpeed = angle * angle * 3.2f;
+                m_LerpSpeed = Mathf.Clamp(m_LerpSpeed, 1.5f, 50);
+            }
+            else
+                m_LerpSpeed = 100;
+
+            Quaternion result = Quaternion.Lerp(m_LastHandRotation, NRInput.GetRotation(defaultHandEnum), Time.deltaTime * m_LerpSpeed);
+            if (angle < 0.74f)
+            {
+                m_SlowDownTimer += Time.deltaTime;
+                if (m_SlowDownTimer >= 0.4f)
+                {
+                    m_Debouncing = true;
+                    return m_LastHandRotation;
+                }
+            }
+            else
+                m_SlowDownTimer = 0;
+
+            m_LastHandRotation = result;
+            return result;
         }
 
         /// <summary> Apply world transform. </summary>
@@ -162,7 +213,7 @@ namespace NRKernal
                 ConversionUtility.GetRotationFromTMatrix(object_in_world));
         }
 
-        
+
         /// <summary>
         ///     Recenter the φ coordinate of laser to make sure the laser is pointing to forward of camera. But the θ coordinate of the laser keeps in sync with controller device.
         /// </summary>
@@ -187,20 +238,20 @@ namespace NRKernal
 
             if (recenterPitch)
             {
-                float offsetAngle  = Quaternion.LookRotation(CameraCenter.forward, Vector3.up).eulerAngles.x;
-                pitchRotation      = Quaternion.AngleAxis(offsetAngle, Vector3.right);
-                controllerInverse  = Quaternion.Inverse(NRInput.GetRotation(defaultHandEnum));
+                float offsetAngle = Quaternion.LookRotation(CameraCenter.forward, Vector3.up).eulerAngles.x;
+                pitchRotation = Quaternion.AngleAxis(offsetAngle, Vector3.right);
+                controllerInverse = Quaternion.Inverse(NRInput.GetRotation(defaultHandEnum));
 
                 float offsetZAngle = NRInput.GetRotation(defaultHandEnum).eulerAngles.z;
-                rollRotation       = Quaternion.AngleAxis(offsetZAngle, Vector3.forward);
+                rollRotation = Quaternion.AngleAxis(offsetZAngle, Vector3.forward);
             }
             else
             {
                 //m_ReviseRotation   = Quaternion.AngleAxis(m_ReviseAngle, Vector3.right);
-                pitchRotation      = Quaternion.identity;
-                rollRotation       = Quaternion.identity;
+                pitchRotation = Quaternion.identity;
+                rollRotation = Quaternion.identity;
             }
-                
+
             var verticalDegree = NRSessionManager.Instance.NRHMDPoseTracker.GetCachedWorldPitch();
             // Use the yaw of camera and the pitch of the world offset from native.
             Quaternion correctRot = Quaternion.Euler(verticalDegree, 0, 0) * Quaternion.Euler(0, horizontalRotEuler.y, 0);

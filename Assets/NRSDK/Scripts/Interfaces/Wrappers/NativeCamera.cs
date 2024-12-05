@@ -24,7 +24,7 @@ namespace NRKernal
         public bool Create()
         {
             _IsErrorState = false;
-            var result = NativeApi.NRRGBCameraCreate(ref m_NativeCameraHandle);
+            var result = NativeApi.NRRgbCameraCreate(ref m_NativeCameraHandle);
             NativeErrorListener.Check(result, this, "Create", true);
             return result == NativeResult.Success;
         }
@@ -42,7 +42,7 @@ namespace NRKernal
                 return false;
             }
             uint data_size = 0;
-            var result = NativeApi.NRRGBCameraImageGetRawData(m_NativeCameraHandle, imageHandle, ref ptr, ref data_size);
+            var result = NativeApi.NRRgbCameraImageGetRawData(m_NativeCameraHandle, imageHandle, ref ptr, ref data_size);
             size = (int)data_size;
             NativeErrorListener.Check(result, this, "GetRawData");
             return result == NativeResult.Success;
@@ -55,7 +55,7 @@ namespace NRKernal
         public NativeResolution GetResolution(UInt64 imageHandle, NativeDevice camera)
         {
             NativeResolution resolution = new NativeResolution(0, 0);
-            var result = NativeApi.NRRGBCameraImageGetResolution(m_NativeCameraHandle, imageHandle, ref resolution);
+            var result = NativeApi.NRRgbCameraImageGetResolution(m_NativeCameraHandle, imageHandle, ref resolution);
             NativeErrorListener.Check(result, this, "GetResolution");
             return resolution;
         }
@@ -67,7 +67,7 @@ namespace NRKernal
         public UInt64 GetHMDTimeNanos(UInt64 imageHandle, NativeDevice camera)
         {
             UInt64 time = 0;
-            NativeApi.NRRGBCameraImageGetHMDTimeNanos(m_NativeCameraHandle, imageHandle, ref time);
+            NativeApi.NRRgbCameraImageGetHMDTimeNanos(m_NativeCameraHandle, imageHandle, ref time);
             return time;
         }
 
@@ -101,22 +101,8 @@ namespace NRKernal
             {
                 return false;
             }
-            var result = NativeApi.NRRGBCameraSetCaptureCallback(m_NativeCameraHandle, callback, userdata);
+            var result = NativeApi.NRRgbCameraSetCaptureCallback(m_NativeCameraHandle, callback, userdata);
             NativeErrorListener.Check(result, this, "SetCaptureCallback");
-            return result == NativeResult.Success;
-        }
-
-        /// <summary> Sets image format. </summary>
-        /// <param name="format"> Describes the format to use.</param>
-        /// <returns> True if it succeeds, false if it fails. </returns>
-        public bool SetImageFormat(CameraImageFormat format)
-        {
-            if (_IsErrorState)
-            {
-                return false;
-            }
-            var result = NativeApi.NRRGBCameraSetImageFormat(m_NativeCameraHandle, format);
-            NativeErrorListener.Check(result, this, "SetImageFormat");
             return result == NativeResult.Success;
         }
 
@@ -129,7 +115,7 @@ namespace NRKernal
                 NativeErrorListener.Check(NativeResult.RGBCameraDeviceNotFind, this, "StartCapture", true);
                 return false;
             }
-            var result = NativeApi.NRRGBCameraStart(m_NativeCameraHandle);
+            var result = NativeApi.NRRgbCameraStart(m_NativeCameraHandle);
             _IsErrorState = (result != NativeResult.Success);
             NativeErrorListener.Check(result, this, "StartCapture", true);
             return result == NativeResult.Success;
@@ -143,7 +129,7 @@ namespace NRKernal
             {
                 return false;
             }
-            var result = NativeApi.NRRGBCameraStop(m_NativeCameraHandle);
+            var result = NativeApi.NRRgbCameraStop(m_NativeCameraHandle);
             NativeErrorListener.Check(result, this, "StopCapture", true);
             return result == NativeResult.Success;
         }
@@ -173,7 +159,7 @@ namespace NRKernal
             {
                 return false;
             }
-            var result = NativeApi.NRRGBCameraImageDestroy(m_NativeCameraHandle, imageHandle);
+            var result = NativeApi.NRRgbCameraImageDestroy(m_NativeCameraHandle, imageHandle);
             NativeErrorListener.Check(result, this, "DestroyImage");
             return result == NativeResult.Success;
         }
@@ -183,21 +169,21 @@ namespace NRKernal
         public bool Release()
         {
             _IsErrorState = false;
-            var result = NativeApi.NRRGBCameraDestroy(m_NativeCameraHandle);
+            var result = NativeApi.NRRgbCameraDestroy(m_NativeCameraHandle);
             NativeErrorListener.Check(result, this, "Release");
             m_NativeCameraHandle = 0;
             return result == NativeResult.Success;
         }
         public NativeVector2f ProjectPoint(NativeVector3f worldPoint)
         {
-            var result = NativeApi.NRRGBCameraProjectPoint(m_NativeCameraHandle, ref worldPoint, out NativeVector2f out_ImagePoint);
+            var result = NativeApi.NRRgbCameraProjectPoint(m_NativeCameraHandle, ref worldPoint, out NativeVector2f out_ImagePoint);
             NativeErrorListener.Check(result, this, "ProjectPoint");
             return out_ImagePoint;
         }
 
         public NativeVector3f UnProjectPoint(NativeVector2f imagePoint)
         {
-            var result = NativeApi.NRRGBCameraUnProjectPoint(m_NativeCameraHandle, ref imagePoint, out NativeVector3f out_WorldPoint);
+            var result = NativeApi.NRRgbCameraUnProjectPoint(m_NativeCameraHandle, ref imagePoint, out NativeVector3f out_WorldPoint);
             NativeErrorListener.Check(result, this, "ProjectPoint");
             return out_WorldPoint;
         }
@@ -211,7 +197,7 @@ namespace NRKernal
             /// <param name="out_image_raw_data_size"> [in,out] Size of the out image raw data.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraImageGetRawData(UInt64 rgb_camera_handle,
+            public static extern NativeResult NRRgbCameraImageGetRawData(UInt64 rgb_camera_handle,
                 UInt64 rgb_camera_image_handle, ref IntPtr out_image_raw_data, ref UInt32 out_image_raw_data_size);
 
             /// <summary> Nrrgb camera image get resolution. </summary>
@@ -220,7 +206,7 @@ namespace NRKernal
             /// <param name="out_image_resolution">    [in,out] The out image resolution.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraImageGetResolution(UInt64 rgb_camera_handle,
+            public static extern NativeResult NRRgbCameraImageGetResolution(UInt64 rgb_camera_handle,
                 UInt64 rgb_camera_image_handle, ref NativeResolution out_image_resolution);
 
             /// <summary> Nrrgb camera image get hmd time nanos. </summary>
@@ -229,7 +215,7 @@ namespace NRKernal
             /// <param name="out_image_hmd_time_nanos"> [in,out] The out image hmd time nanos.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraImageGetHMDTimeNanos(
+            public static extern NativeResult NRRgbCameraImageGetHMDTimeNanos(
                 UInt64 rgb_camera_handle, UInt64 rgb_camera_image_handle,
                 ref UInt64 out_image_hmd_time_nanos);
 
@@ -237,13 +223,13 @@ namespace NRKernal
             /// <param name="out_rgb_camera_handle"> [in,out] Handle of the out RGB camera.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraCreate(ref UInt64 out_rgb_camera_handle);
+            public static extern NativeResult NRRgbCameraCreate(ref UInt64 out_rgb_camera_handle);
 
             /// <summary> Nrrgb camera destroy. </summary>
             /// <param name="rgb_camera_handle"> Handle of the RGB camera.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraDestroy(UInt64 rgb_camera_handle);
+            public static extern NativeResult NRRgbCameraDestroy(UInt64 rgb_camera_handle);
 
             /// <summary> Callback, called when the nrrgb camera set capture. </summary>
             /// <param name="rgb_camera_handle"> Handle of the RGB camera.</param>
@@ -251,35 +237,27 @@ namespace NRKernal
             /// <param name="userdata">          The userdata.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-            public static extern NativeResult NRRGBCameraSetCaptureCallback(
+            public static extern NativeResult NRRgbCameraSetCaptureCallback(
                 UInt64 rgb_camera_handle, CameraImageCallback image_callback, UInt64 userdata);
-
-            /// <summary> Nrrgb camera set image format. </summary>
-            /// <param name="rgb_camera_handle"> Handle of the RGB camera.</param>
-            /// <param name="format">            Describes the format to use.</param>
-            /// <returns> A NativeResult. </returns>
-            [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraSetImageFormat(
-                UInt64 rgb_camera_handle, CameraImageFormat format);
 
             /// <summary> Nrrgb camera start capture. </summary>
             /// <param name="rgb_camera_handle"> Handle of the RGB camera.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraStart(UInt64 rgb_camera_handle);
+            public static extern NativeResult NRRgbCameraStart(UInt64 rgb_camera_handle);
 
             /// <summary> Nrrgb camera stop capture. </summary>
             /// <param name="rgb_camera_handle"> Handle of the RGB camera.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraStop(UInt64 rgb_camera_handle);
+            public static extern NativeResult NRRgbCameraStop(UInt64 rgb_camera_handle);
 
             /// <summary> Nrrgb camera image destroy. </summary>
             /// <param name="rgb_camera_handle">       Handle of the RGB camera.</param>
             /// <param name="rgb_camera_image_handle"> Handle of the RGB camera image.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraImageDestroy(UInt64 rgb_camera_handle,
+            public static extern NativeResult NRRgbCameraImageDestroy(UInt64 rgb_camera_handle,
                 UInt64 rgb_camera_image_handle);
 
             /// <summary>
@@ -290,7 +268,7 @@ namespace NRKernal
             /// <param name="out_image_point">The 2d pixel in the image space.</param>
             /// <returns></returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraProjectPoint(UInt64 rgb_camera_handle,
+            public static extern NativeResult NRRgbCameraProjectPoint(UInt64 rgb_camera_handle,
                 ref NativeVector3f world_point,
                 out NativeVector2f out_image_point);
 
@@ -302,7 +280,7 @@ namespace NRKernal
             /// <param name="out_world_point">The 3d world point in the RGB camera space.</param>
             /// <returns></returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRRGBCameraUnProjectPoint(UInt64 rgb_camera_handle,
+            public static extern NativeResult NRRgbCameraUnProjectPoint(UInt64 rgb_camera_handle,
                 ref NativeVector2f image_point,
                 out NativeVector3f out_world_point);
         };

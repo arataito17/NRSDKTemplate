@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -16,22 +16,36 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using static NRKernal.NRDevice;
+using System.Text;
 
 #if USING_XR_SDK
 using UnityEngine.XR;
 #endif
+using System.Text;
 
 namespace NRKernal
 {
+    public delegate void GlassesEvent(NRActionType actionType, uint actionParam1, uint actionParam2, float actionParam3);
+    public delegate void GlassesEvent_KeyClick(NRClickType actionType, NRKeyType keyType);
+    public delegate void GlassesEvent_KeyState(NRKeyStateData keyStateData);
+    public delegate void GlassesEvent_Disconnected();
+    public delegate void GlassesEvent_Volume(int volume);
+    public delegate void GlassesEvent_RgbCameraPlugState(NRRgbCameraPluginState state);
+    public delegate void GlassesEvent_NextECLevel(int level);
+    public delegate void GlassesEvent_TemperatureState(GlassesTemperatureLevel level);
+    public delegate void GlassesEvent_ReportData(UInt64 glassesHandle, UInt64 glassesActionHandle);
     /// <summary> Glasses event. </summary>
-    /// <param name="eventtype"> The eventtype.</param>
-    public delegate void GlassesEvent(NRDevice.GlassesEventType eventtype);
+    /// <param name="eventType"> The eventtype.</param>
+    public delegate void GlassesEvent_WearingState(GlassesEventType eventType);
     /// <summary> Glasses disconnect event. </summary>
     /// <param name="reason"> The reason.</param>
-    public delegate void GlassesDisconnectEvent(GlassesDisconnectReason reason);
+    public delegate void GlassesEvent_Disconnect(GlassesDisconnectReason reason);
     /// <summary> Glassed temporary level changed. </summary>
     /// <param name="level"> The level.</param>
     public delegate void GlassedTempLevelChanged(GlassesTemperatureLevel level);
+    /// <summary> Brightness value changed event. </summary>
+    /// <param name="value"> The value.</param>
+    public delegate void GlassesEvent_Brightness(int value);
     /// <summary> Session event. </summary>
     /// <param name="status"> The eventtype.</param>
     public delegate void SessionSpecialEvent(SessionSpecialEventType status);
@@ -42,44 +56,20 @@ namespace NRKernal
         public override string id => Name;
     }
 
-    #region brightness KeyEvent on XrealLight.
-    /// <summary> Values that represent nr brightness key events. </summary>
-    public enum NRBrightnessKEYEvent
-    {
-        /// <summary> An enum constant representing the nr brightness key down option. </summary>
-        NR_BRIGHTNESS_KEY_DOWN = 0,
-        /// <summary> An enum constant representing the nr brightness key up option. </summary>
-        NR_BRIGHTNESS_KEY_UP = 1,
-    }
-
-    /// <summary> Brightness key event. </summary>
-    /// <param name="key"> The key.</param>
-    public delegate void BrightnessKeyEvent(NRBrightnessKEYEvent key);
-    /// <summary> Brightness value changed event. </summary>
-    /// <param name="value"> The value.</param>
-    public delegate void BrightnessValueChangedEvent(int value);
-
-    /// <summary> Callback, called when the nr glasses control brightness key. </summary>
-    /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-    /// <param name="key_event">              The key event.</param>
-    /// <param name="user_data">              Information describing the user.</param>
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void NRGlassesControlBrightnessKeyCallback(UInt64 glasses_control_handle, int key_event, UInt64 user_data);
-
-    /// <summary> Callback, called when the nr glasses control brightness value. </summary>
-    /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-    /// <param name="value">                  The value.</param>
-    /// <param name="user_data">              Information describing the user.</param>
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void NRGlassesControlBrightnessValueCallback(UInt64 glasses_control_handle, int value, UInt64 user_data);
-    #endregion
-
-
-
     public class NRDeviceSubsystem : IntegratedSubsystem<NRDeviceSubsystemDescriptor>
     {
-        internal static event GlassesEvent OnGlassesStateChanged;
-        internal static event GlassesDisconnectEvent OnGlassesDisconnect;
+        public static event GlassesEvent OnGlassesEvent;
+        public static event GlassesEvent_KeyClick OnGlassesEvent_KeyClick;
+        public static event GlassesEvent_KeyState OnGlassesEvent_KeyState;
+        public static event GlassesEvent_Volume OnGlassesEvent_Volume;
+        public static event GlassesEvent_RgbCameraPlugState OnGlassesEvent_RgbCameraPlugState;
+        public static event GlassesEvent_NextECLevel OnGlassesEvent_NextECLevel;
+        public static event GlassesEvent_TemperatureState OnGlassesEvent_TemperatureState;
+        public static event GlassesEvent_WearingState OnGlassesEvent_WearingState;
+        public static event GlassesEvent_Disconnect OnGlassesEvent_Disconnect;
+        public static event GlassesEvent_Brightness OnGlassesEvent_Brightness;
+        public static event GlassesEvent_ReportData OnGlassesEvent_Hardware;
+
         private NativeHMD m_NativeHMD = null;
         private NativeGlassesController m_NativeGlassesController = null;
         private Exception m_InitException = null;
@@ -90,14 +80,6 @@ namespace NRKernal
         public UInt64 NativeHMDHandler => m_NativeHMD.HmdHandle;
         public NativeHMD NativeHMD => m_NativeHMD;
         public bool IsAvailable => !m_IsGlassesPlugOut && running && m_InitException == null;
-
-
-        /// <summary> Glass controll key event delegate for native. </summary>
-        private delegate void NRGlassesControlKeyEventCallback(UInt64 glasses_control_handle, UInt64 key_event_handle, UInt64 user_data);
-        /// <summary> Event queue for all listeners interested in OnBrightnessKeyCallback events. </summary>
-        private static event BrightnessKeyEvent OnBrightnessKeyCallback;
-        /// <summary> Event queue for all listeners interested in OnBrightnessValueCallback events. </summary>
-        private static event BrightnessValueChangedEvent OnBrightnessValueCallback;
 
         /// <summary> The brightness minimum. </summary>
         public const int BRIGHTNESS_MIN = 0;
@@ -125,9 +107,11 @@ namespace NRKernal
             try
             {
                 m_NativeGlassesController.Create();
-                m_NativeGlassesController.RegisGlassesWearCallBack(OnGlassesWear, 1);
-                m_NativeGlassesController.RegistGlassesEventCallBack(OnGlassesDisconnectEvent);
+                m_NativeGlassesController.RegistEventCallBack(OnGlassesActionCallback);
 #if USING_XR_SDK
+                var targetRenderMode = NRSessionManager.Instance.NRSessionBehaviour.SessionConfig.TargetRenderMode;
+                NativeXRPlugin.SetTargetRenderMode((int)targetRenderMode);
+
                 m_XRDisplaySubsystem = NRFrame.CreateXRSubsystem<XRDisplaySubsystemDescriptor, XRDisplaySubsystem>(k_idDisplaySubSystem);
                 m_NativeHMD.Create(NativeXRPlugin.GetHMDHandle());
 #else
@@ -155,15 +139,15 @@ namespace NRKernal
 #if !UNITY_EDITOR
             m_NativeGlassesController?.Start();
             NRDevice.OnSessionSpecialEvent?.Invoke(SessionSpecialEventType.GlassesStarted);
-
+            
             int outBrightnessMax = 0;
-            var result = NativeApi.NRGlassesControlGetBrightnessLevelNumber(NativeGlassesHandler, ref outBrightnessMax);
+            var result = NativeApi.NRGlassesGetDisplayBrightnessLevelCount(NativeGlassesHandler, ref outBrightnessMax);
             NativeErrorListener.Check(result, this, "NRGlassesControlGetBrightnessLevelNumber");
             if (result == NativeResult.Success)
                 m_Brightness_Max  = outBrightnessMax - 1;
 
             NRDebugger.Info("[NRDeviceSubsystem] MaxBrightness  = {0}", m_Brightness_Max);
-
+            
 #if USING_XR_SDK
             XRDisplaySubsystem?.Start();
             NativeXRPlugin.RegistDisplaySubSystemEventCallback(DisplaySubSystemStart);
@@ -172,41 +156,7 @@ namespace NRKernal
 #endif
             NRDevice.OnSessionSpecialEvent?.Invoke(SessionSpecialEventType.HMDStarted);
 #endif
-            RegisGlassesControllerExtraCallbacks();
             NRDebugger.Info("[NRDeviceSubsystem] Started");
-        }
-
-        /// <summary> Executes the 'glasses wear' action. </summary>
-        /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-        /// <param name="wearing_status">         The wearing status.</param>
-        /// <param name="user_data">              Information describing the user.</param>
-        [MonoPInvokeCallback(typeof(NRGlassesControlWearCallback))]
-        private static void OnGlassesWear(UInt64 glasses_control_handle, int wearing_status, UInt64 user_data)
-        {
-            MainThreadDispather.QueueOnMainThread(() =>
-            {
-                OnGlassesStateChanged?.Invoke(wearing_status == 1 ? GlassesEventType.PutOn : GlassesEventType.PutOff);
-            });
-        }
-
-        /// <summary> Executes the 'glasses disconnect event' action. </summary>
-        /// <exception cref="Exception"> Thrown when an exception error condition occurs.</exception>
-        /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-        /// <param name="user_data">              Information describing the user.</param>
-        /// <param name="reason">                 The reason.</param>
-        [MonoPInvokeCallback(typeof(NRGlassesControlNotifyQuitAppCallback))]
-        private static void OnGlassesDisconnectEvent(UInt64 glasses_control_handle, IntPtr user_data, GlassesDisconnectReason reason)
-        {
-            NRDebugger.Info($"OnGlassesDisconnectEvent: m_IsGlassesPlugOut={m_IsGlassesPlugOut}, reason={reason}");
-            if (m_IsGlassesPlugOut)
-            {
-                return;
-            }
-            if(reason != GlassesDisconnectReason.NOTIFY_TO_QUIT_APP)
-            {
-                m_IsGlassesPlugOut = true;
-            }
-            OnGlassesDisconnect?.Invoke(reason);
         }
 
         [MonoPInvokeCallback(typeof(OnDisplaySubSystemStartCallback))]
@@ -220,6 +170,128 @@ namespace NRKernal
             {
                 NRDebugger.Error("[NRDeviceSubsystem] DisplaySubSystemStart: {0}\n{1}", ex.Message, ex.StackTrace);
             }
+        }
+
+        [MonoPInvokeCallback(typeof(NRGlassesActionCallback))]
+        private static void OnGlassesActionCallback(UInt64 glasses_handle, UInt64 glasses_action_handle, UInt64 user_data)
+        {
+            NRActionType action_type = NRActionType.ACTION_TYPE_UNKNOWN;
+            uint action_param1 = 0;
+            uint action_param2 = 0;
+            float action_param3 = 0;
+            NativeApi.NRGlassesActionGetType(glasses_handle, glasses_action_handle, ref action_type);
+            NativeApi.NRGlassesActionGetParam(glasses_handle, glasses_action_handle, ref action_param1);
+            NativeApi.NRGlassesActionGetParam2(glasses_handle, glasses_action_handle, ref action_param2);
+            NativeApi.NRGlassesActionGetParam3(glasses_handle, glasses_action_handle, ref action_param3);
+            NRDebugger.Info($"OnGlassesActionCallback: action_type={action_type}, action_param={action_param1}, action_param2={action_param2}, action_param3={action_param3}");
+            MainThreadDispather.QueueOnMainThread(() =>
+            {
+                OnGlassesEvent?.Invoke(action_type, action_param1, action_param2, action_param3);
+            });
+
+            if (action_type == NRActionType.ACTION_TYPE_CLICK || action_type == NRActionType.ACTION_TYPE_DOUBLE_CLICK || action_type == NRActionType.ACTION_TYPE_LONG_PRESS)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    NRClickType clickType = (NRClickType)action_type;
+                    NRKeyType keyType = (NRKeyType)action_param1;
+                    NRDebugger.Info($"OnGlassesActionCallback: clickType={clickType}, keyType={keyType}");
+                    OnGlassesEvent_KeyClick?.Invoke(clickType, keyType);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_KEY_STATE)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    ulong hmd_time_nanos = 0;
+                    NativeApi.NRGlassesActionGetHMDTimeNanosOnDevice(glasses_handle, glasses_action_handle, ref hmd_time_nanos);
+                    NRKeyStateData keyStateData = new NRKeyStateData();
+                    keyStateData.key_type = (NRKeyType)action_param1;
+                    keyStateData.key_state = (NRKeyState)action_param2;
+                    keyStateData.hmd_time_nanos_device = hmd_time_nanos;
+                    NRDebugger.Info($"OnGlassesActionCallback: keyStateData={JsonUtility.ToJson(keyStateData)}");
+                    OnGlassesEvent_KeyState?.Invoke(keyStateData);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_PROXIMITY_WEARING_STATE)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    GlassesEventType wearing_status = (GlassesEventType)action_param1;
+                    if(wearing_status == GlassesEventType.PutOn || wearing_status == GlassesEventType.PutOff)
+                    {
+                        OnGlassesEvent_WearingState?.Invoke(wearing_status);
+                        NRSessionManager.OnGlassesStateChanged?.Invoke(wearing_status);
+                    }
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_INCREASE_BRIGHTNESS || action_type == NRActionType.ACTION_TYPE_DECREASE_BRIGHTNESS)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    int brightness = (int)action_param1;
+                    OnGlassesEvent_Brightness?.Invoke(brightness);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_INCREASE_VOLUME || action_type == NRActionType.ACTION_TYPE_DECREASE_VOLUME)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    int volume = (int)action_param1;
+                    OnGlassesEvent_Volume?.Invoke(volume);
+                });
+            }
+            else if(action_type == NRActionType.ACTION_TYPE_NEXT_EC_LEVEL)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    int ecLevel = (int)action_param1;
+                    NRDebugger.Info($"OnGlassesActionCallback: switch EC to {ecLevel}");
+                    OnGlassesEvent_NextECLevel?.Invoke(ecLevel);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_DISCONNECT || action_type == NRActionType.ACTION_TYPE_FORCE_QUIT)
+            {
+                NRDebugger.Info($"OnGlassesDisconnectEvent: m_IsGlassesPlugOut={m_IsGlassesPlugOut}, reason={action_type}");
+                if (m_IsGlassesPlugOut)
+                {
+                    return;
+                }
+                if (action_type != NRActionType.ACTION_TYPE_FORCE_QUIT)
+                {
+                    m_IsGlassesPlugOut = true;
+                }
+
+                if(action_type == NRActionType.ACTION_TYPE_DISCONNECT)
+                    OnGlassesEvent_Disconnect?.Invoke(GlassesDisconnectReason.GLASSES_DEVICE_DISCONNECT);
+                else if(action_type == NRActionType.ACTION_TYPE_FORCE_QUIT)
+                    OnGlassesEvent_Disconnect?.Invoke(GlassesDisconnectReason.NOTIFY_TO_QUIT_APP);
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_RGB_CAMERA_PLUGIN_STATE)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    NRRgbCameraPluginState rgbCameraPlugState = (NRRgbCameraPluginState)action_param1;
+                    OnGlassesEvent_RgbCameraPlugState?.Invoke(rgbCameraPlugState);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_TEMPERATURE_STATE)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    GlassesTemperatureLevel level = (GlassesTemperatureLevel)action_param1;
+                    OnGlassesEvent_TemperatureState?.Invoke(level);
+                });
+            }
+            else if (action_type == NRActionType.ACTION_TYPE_EVENT)
+            {
+                MainThreadDispather.QueueOnMainThread(() =>
+                {
+                    OnGlassesEvent_Hardware?.Invoke(glasses_handle, glasses_action_handle);
+                });
+            }
+
+            NativeApi.NRGlassesActionDestroy(glasses_handle, glasses_action_handle);
         }
 
         public void ResetStateOnNextResume()
@@ -311,27 +383,6 @@ namespace NRKernal
         }
         #endregion
 
-        #region Glasses
-
-        /// <summary> Gets current stereo mode of glasses. </summary>
-        /// <value> The glasses stereo mode. </value>
-        public NativeGlassesStereoMode GlassesStereoMode
-        {
-            get
-            {
-                if (!IsAvailable)
-                {
-                    throw new NRGlassesNotAvailbleError("Device is not available.");
-                }
-#if !UNITY_EDITOR
-                return m_NativeGlassesController.GetStereoMode();
-#else
-                return NativeGlassesStereoMode.UnKnown;
-#endif
-            }
-        }
-        #endregion
-
         #region HMD
         public NRDeviceType GetDeviceType()
         {
@@ -343,7 +394,7 @@ namespace NRKernal
 #if !UNITY_EDITOR
             return m_NativeHMD.GetDeviceType();
 #else
-            return NRDeviceType.XrealLight;
+            return NRDeviceType.None;
 #endif
         }
 
@@ -474,34 +525,6 @@ namespace NRKernal
         #endregion
 
         #region brightness KeyEvent on XrealLight.
-        /// <summary> Adds an event listener to 'callback'. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void AddEventListener(BrightnessKeyEvent callback)
-        {
-            OnBrightnessKeyCallback += callback;
-        }
-
-        /// <summary>
-        /// Adds an event listener to 'callback'. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void AddEventListener(BrightnessValueChangedEvent callback)
-        {
-            OnBrightnessValueCallback += callback;
-        }
-
-        /// <summary> Removes the event listener. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void RemoveEventListener(BrightnessKeyEvent callback)
-        {
-            OnBrightnessKeyCallback -= callback;
-        }
-
-        /// <summary> Removes the event listener. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void RemoveEventListener(BrightnessValueChangedEvent callback)
-        {
-            OnBrightnessValueCallback -= callback;
-        }
 
 
         /// <summary> Gets the brightness. </summary>
@@ -515,7 +538,7 @@ namespace NRKernal
 
 #if !UNITY_EDITOR
             int brightness = -1;
-            var result = NativeApi.NRGlassesControlGetBrightness(NativeGlassesHandler, ref brightness);
+            var result = NativeApi.NRGlassesGetDisplayBrightnessLevel(NativeGlassesHandler, ref brightness);
             return result == NativeResult.Success ? brightness : -1;
 #else
             return 0;
@@ -534,134 +557,63 @@ namespace NRKernal
             AsyncTaskExecuter.Instance.RunAction(() =>
             {
 #if !UNITY_EDITOR
-                NativeApi.NRGlassesControlSetBrightness(NativeGlassesHandler, brightness);
+                NativeApi.NRGlassesSetDisplayBrightnessLevel(NativeGlassesHandler, brightness);
 #endif
             });
         }
+        #endregion
 
-
-        /// <summary> Executes the 'brightness key callback internal' action. </summary>
-        /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-        /// <param name="key_event">              The key event.</param>
-        /// <param name="user_data">              Information describing the user.</param>
-        [MonoPInvokeCallback(typeof(NRGlassesControlBrightnessKeyCallback))]
-        private static void OnBrightnessKeyCallbackInternal(UInt64 glasses_control_handle, int key_event, UInt64 user_data)
+        public bool SupportElectrochromic()
         {
-            OnBrightnessKeyCallback?.Invoke((NRBrightnessKEYEvent)key_event);
+            var deviceType = GetDeviceType();
+            return !(deviceType == NRDeviceType.XrealLight
+                || deviceType == NRDeviceType.XrealAir
+                || deviceType == NRDeviceType.XrealAIR2);
         }
 
-        /// <summary> Executes the 'brightness value callback internal' action. </summary>
-        /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-        /// <param name="brightness">             The brightness.</param>
-        /// <param name="user_data">              Information describing the user.</param>
-        [MonoPInvokeCallback(typeof(NRGlassesControlBrightnessValueCallback))]
-        private static void OnBrightnessValueCallbackInternal(UInt64 glasses_control_handle, int brightness, UInt64 user_data)
+        public bool SupportColorTemperature()
         {
-            OnBrightnessValueCallback?.Invoke(brightness);
+            var deviceType = GetDeviceType();
+            return deviceType == NRDeviceType.Xreal_One
+                || deviceType == NRDeviceType.Xreal_One_ProL
+                || deviceType == NRDeviceType.Xreal_One_ProM;
         }
 
-        /// <summary> Event queue for all listeners interested in KeyEvent events. </summary>
-        private static event NRGlassControlKeyEvent OnKeyEventCallback;
-
-        /// <summary>
-        /// Adds an key event listener. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void AddKeyEventListener(NRGlassControlKeyEvent callback)
-        {
-            OnKeyEventCallback += callback;
-        }
-
-        /// <summary> Removes the key event listener. </summary>
-        /// <param name="callback"> The callback.</param>
-        public void RemoveKeyEventListener(NRGlassControlKeyEvent callback)
-        {
-            OnKeyEventCallback -= callback;
-        }
-
-        /// <summary> Executes the 'key event callback internal' action. </summary>
-        /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-        /// <param name="key_event_handle">       Handle of the key event.</param>
-        /// <param name="user_data">              Information describing the user.</param>
-        [MonoPInvokeCallback(typeof(NRGlassesControlKeyEventCallback))]
-        private static void OnKeyEventCallbackInternal(UInt64 glasses_control_handle, UInt64 key_event_handle, UInt64 user_data)
-        {
-            int keyType = 0;
-            int keyFunc = 0;
-            int keyParam = 0;
-
-#if !UNITY_EDITOR
-            NativeResult result = NativeApi.NRGlassesControlKeyEventGetType(glasses_control_handle, key_event_handle, ref keyType);
-            if (result == NativeResult.Success)
-                result = NativeApi.NRGlassesControlKeyEventGetFunction(glasses_control_handle, key_event_handle, ref keyFunc);
-            if (result == NativeResult.Success)
-                result = NativeApi.NRGlassesControlKeyEventGetParam(glasses_control_handle, key_event_handle, ref keyParam);
-#endif
-            NRKeyEventInfo keyEvtInfo = new NRKeyEventInfo();
-            keyEvtInfo.keyType = (NRKeyType)keyType;
-            keyEvtInfo.keyFunc = (NRKeyFunction)keyFunc;
-            keyEvtInfo.keyParam = keyParam;
-
-            OnKeyEventCallback?.Invoke(keyEvtInfo);
-        }
-
-        /// <summary>
-        /// Regis glasses controller extra callbacks. </summary>
-        public void RegisGlassesControllerExtraCallbacks()
+        public string GetGlassesSystemVersion()
         {
             if (!IsAvailable)
             {
-                NRDebugger.Warning("[NRDevice] Can not regist event when glasses disconnect...");
-                return;
+                throw new NRGlassesNotAvailbleError("Device is not available.");
             }
-
-#if !UNITY_EDITOR
-            NativeApi.NRGlassesControlSetBrightnessKeyCallback(NativeGlassesHandler, OnBrightnessKeyCallbackInternal, 0);
-            NativeApi.NRGlassesControlSetBrightnessValueCallback(NativeGlassesHandler, OnBrightnessValueCallbackInternal, 0);
-            NativeApi.NRGlassesControlSetKeyEventCallback(NativeGlassesHandler, OnKeyEventCallbackInternal, 0);
-#endif
+            byte[] version_data = new byte[128];
+            int out_version_size = 0;
+            NativeResult result = NativeApi.NRGlassesGetGlassesSystemVersion(NativeGlassesHandler, version_data, version_data.Length, ref out_version_size);
+            NativeErrorListener.Check(result, NativeGlassesHandler, "NRGlassesGetGlassesSystemVersion");
+            return Encoding.UTF8.GetString(version_data, 0, out_version_size);
         }
-        #endregion
 
         private struct NativeApi
         {
-            /// <summary> Nr glasses control get brightness. </summary>
+            /// <summary> Nr glasses control get brightness level count. </summary>
             /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-            /// <param name="out_brightness">         [in,out] The out brightness.</param>
+            /// <param name="out_brightness_level_count"> return brightness level count.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRGlassesControlGetBrightness(UInt64 glasses_control_handle, ref int out_brightness);
+            public static extern NativeResult NRGlassesGetDisplayBrightnessLevelCount(UInt64 glasses_control_handle, ref int out_brightness_level_count);
+
+            /// </summary> Nr glasses control get brightness. </summary>
+            /// <param name="glasses_control_handle"> Handle of the glasses control. </param>
+            /// <param name="out_brightness_level"> return brightness level. </param>
+            /// <returns> A NativeResult. </returns>
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesGetDisplayBrightnessLevel(UInt64 glasses_control_handle, ref int out_brightness_level);
 
             /// <summary> Nr glasses control set brightness. </summary>
             /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-            /// <param name="brightness">             The brightness.</param>
+            /// <param name="brightness_level">   The brightness level.</param>
             /// <returns> A NativeResult. </returns>
             [DllImport(NativeConstants.NRNativeLibrary)]
-            public static extern NativeResult NRGlassesControlSetBrightness(UInt64 glasses_control_handle, int brightness);
-
-
-            /// <summary> Callback, called when the nr glasses control set brightness key. </summary>
-            /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-            /// <param name="callback">               The callback.</param>
-            /// <param name="user_data">              Information describing the user.</param>
-            /// <returns> A NativeResult. </returns>
-            [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-            public static extern NativeResult NRGlassesControlSetBrightnessKeyCallback(UInt64 glasses_control_handle, NRGlassesControlBrightnessKeyCallback callback, UInt64 user_data);
-
-            /// <summary> Callback, called when the nr glasses control set brightness value. </summary>
-            /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-            /// <param name="callback">               The callback.</param>
-            /// <param name="user_data">              Information describing the user.</param>
-            /// <returns> A NativeResult. </returns>
-            [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-            public static extern NativeResult NRGlassesControlSetBrightnessValueCallback(UInt64 glasses_control_handle, NRGlassesControlBrightnessValueCallback callback, UInt64 user_data);
-
-            /// <summary> Registe the callback when the nr glasses control issue key event. </summary>
-            /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
-            /// <param name="callback">               The called.</param>
-            /// <param name="user_data">              Information describing the user.</param>
-            /// <returns> A NativeResult. </returns>
-            [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-            public static extern NativeResult NRGlassesControlSetKeyEventCallback(UInt64 glasses_control_handle, NRGlassesControlKeyEventCallback callback, UInt64 user_data);
+            public static extern NativeResult NRGlassesSetDisplayBrightnessLevel(UInt64 glasses_control_handle, int brightness_level);
 
             /// <summary> Get key type of key event. </summary>
             /// <param name="glasses_control_handle"> Handle of the glasses control.</param>
@@ -687,13 +639,32 @@ namespace NRKernal
             [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
             public static extern NativeResult NRGlassesControlKeyEventGetParam(UInt64 glasses_control_handle, UInt64 key_event_handle, ref int out_key_event_param);
 
-            /// </summary>
-            /// <param name="glasses_control_handle"> Handle of the glasses control. </param>
-            /// <param name="out_brightness_level_number"> return maximum brightness level. </param>
-            /// <returns></returns>
-            [DllImport(NativeConstants.NRNativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-            public static extern NativeResult NRGlassesControlGetBrightnessLevelNumber(UInt64 glasses_control_handle, ref int out_brightness_level_number);
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionDestroy(UInt64 glasses_handle, UInt64 glasses_action_handle);
 
+            /// @brief Get type of action.
+            /// @param glasses_handle The handle of glasses object.
+            /// @param glasses_action_handle The handle of glasses action object.
+            /// @param[out] out_action_type The type of an action.
+            /// @return The result of operation.
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetType(UInt64 glasses_handle, UInt64 glasses_action_handle, ref NRActionType out_action_type);
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetParam(UInt64 glasses_handle, UInt64 glasses_action_handle, ref uint out_action_param);
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetParam2(UInt64 glasses_handle, UInt64 glasses_action_handle, ref uint out_action_param2);
+
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetParam3(UInt64 glasses_handle, UInt64 glasses_action_handle, ref float out_action_param3);
+
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetHMDTimeNanos(UInt64 glasses_handle, UInt64 glasses_action_handle, ref ulong out_action_hmd_time_nanos);
+
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesActionGetHMDTimeNanosOnDevice(UInt64 glasses_handle, UInt64 glasses_action_handle, ref ulong out_action_hmd_time_nanos_device);
+
+            [DllImport(NativeConstants.NRNativeLibrary)]
+            public static extern NativeResult NRGlassesGetGlassesSystemVersion(UInt64 glasses_handle, byte[] version_data, Int32 version_size, ref Int32 out_version_size);
         }
     }
 }

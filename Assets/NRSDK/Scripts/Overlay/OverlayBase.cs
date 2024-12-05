@@ -203,14 +203,17 @@ namespace NRKernal
 
         public override string ToString()
         {
-            if (ViewPorts.Length == 1)
+            if (ViewPorts != null)
             {
-                return string.Format("swapchainHandler:{0}, go:{1}, depth:{2}, viewIndex:{3}, BufferSpec:{4}, viewPort:{5}", m_SwapChainHandler, gameObject.name, compositionDepth, ViewPorts[0].index, m_BufferSpec.ToString(), ViewPorts[0].ToString());
-            }
-            else if (ViewPorts.Length == 2)
-            {
-                return string.Format("swapchainHandler:{0}, go:{1}, depth:{2}, viewIndex:{3}_{4}, BufferSpec:{5}, viewPort_0={6}, viewPort_1={7}", 
-                    m_SwapChainHandler, gameObject.name, compositionDepth, ViewPorts[0].index, ViewPorts[1].index, m_BufferSpec.ToString(), ViewPorts[0].ToString(), ViewPorts[1].ToString());
+                if (ViewPorts.Length == 1)
+                {
+                    return string.Format("swapchainHandler:{0}, go:{1}, depth:{2}, viewIndex:{3}, BufferSpec:{4}, viewPort:{5}", m_SwapChainHandler, gameObject.name, compositionDepth, ViewPorts[0].index, m_BufferSpec.ToString(), ViewPorts[0].ToString());
+                }
+                else if (ViewPorts.Length == 2)
+                {
+                    return string.Format("swapchainHandler:{0}, go:{1}, depth:{2}, viewIndex:{3}_{4}, BufferSpec:{5}, viewPort_0={6}, viewPort_1={7}",
+                        m_SwapChainHandler, gameObject.name, compositionDepth, ViewPorts[0].index, ViewPorts[1].index, m_BufferSpec.ToString(), ViewPorts[0].ToString(), ViewPorts[1].ToString());
+                }
             }
             return string.Empty;
         }

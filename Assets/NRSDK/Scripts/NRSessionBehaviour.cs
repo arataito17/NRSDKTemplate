@@ -40,7 +40,7 @@ namespace NRKernal
             base.Awake();
             if (isDirty) return;
 
-            Debug.LogFormat("[SessionBehaviour] NRSDKPackage Version: {0}", NRVersionInfo.GetNRSDKPackageVersion());
+            Debug.LogFormat("[SessionBehaviour] NRSDKPackage Version: {0}, {1}", NRVersionInfo.GetNRSDKPackageVersion(), NRVersionInfo.GetVersion());
 
 #if NR_PROFILER
             NRDebugger.logLevel = LogLevel;

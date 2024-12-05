@@ -92,14 +92,15 @@ namespace NRKernal.Record
             NRDebugger.Info("[CaptureContext] Create...");
             if (m_CaptureBehaviour == null)
             {
-                this.m_CaptureBehaviour = this.GetCaptureBehaviourByMode(param.camMode);
+                this.m_CaptureBehaviour = this.GetCaptureBehaviourByMode(param.camMode, param.captureSide);
             }
 
             this.m_CameraParameters = param;
             this.m_Encoder = GetEncoderByMode(param.camMode);
             this.m_Encoder.Config(param);
             this.m_Blender = new ExtraFrameBlender();
-            this.m_Blender.Init(m_CaptureBehaviour.CaptureCamera, m_Encoder, param);
+            this.m_Blender.Init(param.captureSide == CaptureSide.Single ? new Camera[] { m_CaptureBehaviour.CaptureCamera } : new Camera[] { m_CaptureBehaviour.CaptureCamera, m_CaptureBehaviour.CaptureCamera2 },
+                m_Encoder, param);
             this.m_CaptureBehaviour.Init(this);
 
             this.m_FrameProvider = CreateFrameProviderByMode(param.blendMode, param.frameRate);
@@ -141,7 +142,7 @@ namespace NRKernal.Record
         /// <exception cref="Exception"> Thrown when an exception error condition occurs.</exception>
         /// <param name="mode"> The mode.</param>
         /// <returns> The capture behaviour by mode. </returns>
-        private CaptureBehaviourBase GetCaptureBehaviourByMode(CamMode mode)
+        private CaptureBehaviourBase GetCaptureBehaviourByMode(CamMode mode, CaptureSide side)
         {
             if (mode == CamMode.PhotoMode)
             {
@@ -152,6 +153,19 @@ namespace NRKernal.Record
                     capture = GameObject.Instantiate(Resources.Load<NRCaptureBehaviour>("Record/Prefabs/NRCaptureBehaviour"), headParent);
                 }
                 GameObject.DontDestroyOnLoad(capture.gameObject);
+                if (side == CaptureSide.Single)
+                {
+                    capture.CaptureCamera.gameObject.SetActive(true);
+                    capture.CaptureCamera2.gameObject.SetActive(false);
+                    capture.CaptureCamera.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.RGB_CAMERA);
+                }
+                else
+                {
+                    capture.CaptureCamera.gameObject.SetActive(true);
+                    capture.CaptureCamera2.gameObject.SetActive(true);
+                    capture.CaptureCamera.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.LEFT_DISPLAY);
+                    capture.CaptureCamera2.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.RIGHT_DISPLAY);
+                }
                 return capture;
             }
             else if (mode == CamMode.VideoMode)
@@ -163,6 +177,19 @@ namespace NRKernal.Record
                     capture = GameObject.Instantiate(Resources.Load<NRRecordBehaviour>("Record/Prefabs/NRRecorderBehaviour"), headParent);
                 }
                 GameObject.DontDestroyOnLoad(capture.gameObject);
+                if(side == CaptureSide.Single)
+                {
+                    capture.CaptureCamera.gameObject.SetActive(true);
+                    capture.CaptureCamera2.gameObject.SetActive(false);
+                    capture.CaptureCamera.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.RGB_CAMERA);
+                }
+                else
+                {
+                    capture.CaptureCamera.gameObject.SetActive(true);
+                    capture.CaptureCamera2.gameObject.SetActive(true);
+                    capture.CaptureCamera.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.LEFT_DISPLAY);
+                    capture.CaptureCamera2.gameObject.GetComponent<NRCameraInitializer>().SwitchToEyeParam(NativeDevice.RIGHT_DISPLAY);
+                }
                 return capture;
             }
             else

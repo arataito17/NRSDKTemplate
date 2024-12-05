@@ -20,42 +20,21 @@ namespace NRKernal
         private NRTrackingModeChangedTip m_LostTrackingTip;
         private Coroutine m_EnableRenderCamera;
         private Coroutine m_DisableRenderCamera;
-        private bool m_HMDPoseInitialized = false;
         private const float MinTimeLastLimited = 0.5f;
         private const float MaxTimeLastLimited = 6f;
-        private static string m_CustomTips = null;
-        public static void SetCustomTips(string tips)
-        {
-            m_CustomTips = tips;
-        }
 
         public NRTrackingModeChangedListener()
         {
-            NRHMDPoseTracker.OnHMDPoseReady += OnHMDPoseReady;
-            NRHMDPoseTracker.OnHMDLostTracking += OnHMDLostTracking;
             NRHMDPoseTracker.OnChangeTrackingMode += OnChangeTrackingMode;
-        }
-
-        private void OnHMDLostTracking()
-        {
-            if (!m_HMDPoseInitialized)
-                return;
-            NRDebugger.Info("[NRTrackingModeChangedListener] OnHMDLostTracking: {0}", NRFrame.LostTrackingReason);
-            ShowTips(string.Empty);
-        }
-        private void OnHMDPoseReady()
-        {
-            m_HMDPoseInitialized = true;
         }
 
         private void OnChangeTrackingMode(TrackingType origin, TrackingType target)
         {
             NRDebugger.Info("[NRTrackingModeChangedListener] OnChangeTrackingMode: {0} => {1}", origin, target);
-            ShowTips(string.IsNullOrEmpty(m_CustomTips) ? NativeConstants.TRACKING_MODE_SWITCH_TIP : m_CustomTips);
+            ShowTips();
         }
 
-
-        private void ShowTips(string tips)
+        private void ShowTips()
         {
             if (m_EnableRenderCamera != null)
             {
@@ -67,10 +46,10 @@ namespace NRKernal
                 NRKernalUpdater.Instance.StopCoroutine(m_DisableRenderCamera);
                 m_DisableRenderCamera = null;
             }
-            m_EnableRenderCamera = NRKernalUpdater.Instance.StartCoroutine(EnableTrackingInitializingRenderCamera(tips));
+            m_EnableRenderCamera = NRKernalUpdater.Instance.StartCoroutine(EnableTrackingInitializingRenderCamera());
         }
 
-        public IEnumerator EnableTrackingInitializingRenderCamera(string tips)
+        public IEnumerator EnableTrackingInitializingRenderCamera()
         {
             if (m_LostTrackingTip == null)
             {
@@ -78,7 +57,6 @@ namespace NRKernal
             }
             m_LostTrackingTip.Show();
             var reason = NRFrame.LostTrackingReason;
-            m_LostTrackingTip.SetMessage(tips);
 
             float begin_time = Time.realtimeSinceStartup;
             var endofFrame = new WaitForEndOfFrame();
@@ -120,8 +98,6 @@ namespace NRKernal
 
         public void Dispose()
         {
-            NRHMDPoseTracker.OnHMDPoseReady -= OnHMDPoseReady;
-            NRHMDPoseTracker.OnHMDLostTracking -= OnHMDLostTracking;
             NRHMDPoseTracker.OnChangeTrackingMode -= OnChangeTrackingMode;
 
             if (m_EnableRenderCamera != null)
@@ -140,7 +116,6 @@ namespace NRKernal
                 GameObject.Destroy(m_LostTrackingTip.gameObject);
                 m_LostTrackingTip = null;
             }
-            m_CustomTips = null;
         }
     }
 }

@@ -94,14 +94,6 @@ namespace NRKernal
             return true;
         }
 
-        /// <summary> Sets image format. </summary>
-        /// <param name="format"> Describes the format to use.</param>
-        /// <returns> True if it succeeds, false if it fails. </returns>
-        public bool SetImageFormat(CameraImageFormat format)
-        {
-            return true;
-        }
-
         /// <summary> Starts a capture. </summary>
         /// <returns> True if it succeeds, false if it fails. </returns>
         public bool StartCapture()

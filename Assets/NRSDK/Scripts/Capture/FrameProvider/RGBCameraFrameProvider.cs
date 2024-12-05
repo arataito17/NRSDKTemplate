@@ -21,25 +21,10 @@ namespace NRKernal.Record
         /// <summary> Default constructor. </summary>
         public RGBCameraFrameProvider()
         {
-            var active_format = NativeCameraProxy.GetActiveCameraImageFormat(NRRgbCamera.ID);
-            NRDebugger.Info("[CameraFrameProvider] Use format:{0}", active_format);
-            switch (active_format)
-            {
-                case CameraImageFormat.YUV_420_888:
-                    m_CameraTexture = new NRRGBCamTextureYUV();
-                    ((NRRGBCamTextureYUV)m_CameraTexture).OnUpdate += UpdateYUVFrame;
-                    frameInfo.textures = new Texture[3];
-                    frameInfo.textureType = TextureType.YUV;
-                    break;
-                case CameraImageFormat.RGB_888:
-                    m_CameraTexture = new NRRGBCamTexture();
-                    ((NRRGBCamTexture)m_CameraTexture).OnUpdate += UpdateRGBFrame;
-                    frameInfo.textures = new Texture[1];
-                    frameInfo.textureType = TextureType.RGB;
-                    break;
-                default:
-                    break;
-            }
+            m_CameraTexture = new NRRGBCamTextureYUV();
+            ((NRRGBCamTextureYUV)m_CameraTexture).OnUpdate += UpdateYUVFrame;
+            frameInfo.textures = new Texture[3];
+            frameInfo.textureType = TextureType.YUV;
         }
 
         private void UpdateYUVFrame(NRRGBCamTextureYUV.YUVTextureFrame frame)

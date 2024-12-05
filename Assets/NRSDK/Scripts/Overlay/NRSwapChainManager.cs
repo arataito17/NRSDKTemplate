@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -24,6 +24,19 @@ namespace NRKernal
     using UnityEngine.Assertions;
     using AOT;
     using UnityEngine.Rendering;
+
+    public enum NRRenderMode
+    {
+        // The app doesn't have any preferences, the render mode is determined by the NRSDK itself, based on the current status of the glasses.
+        Default,
+        // The glasses are in mono mode, and the app is running with a mono camera.
+        Mono,
+        // The glasses are in stereo mode, and the app is running with a pair of stereo cameras.
+        Stereo,
+        // The glasses are in mono mode, but the app is running with a pair of stereo cameras.
+        PingpongStereo
+    }
+
 
     public enum LayerTextureType
     {
@@ -112,22 +125,37 @@ namespace NRKernal
         }
 
 
+        private bool m_MonoMode = false;
+        /// <summary> If sdk is running in mono mode. </summary>
+        /// <value> If sdk is running in mono mode. </value>
+        public bool MonoMode
+        {
+            get { return m_MonoMode; }
+        }
+
+
         /// <summary> Gets or sets the nr renderer. </summary>
         /// <value> The nr renderer. </value>
         public NRRenderer NRRenderer { get; set; }
 
         private UInt64 m_CachFrameHandle = 0;
         private Dictionary<UInt64, IntPtr> m_LayerWorkingBufferDict;
-        private Queue<TaskInfo> m_TaskQueue;
+        private List<TaskInfo> m_TaskList;
+        private List<TaskInfo> m_TempRunningTasks = new List<TaskInfo>();
 
         /// <summary>
         /// Max overlay count is MaxOverlayCount-2, the two overlay are left display and right display.
         /// </summary>
         private const int MaxOverlayCount = 7;
 
+        private enum EDelayTaskType : int
+        {
+            ADD_LAYER = 1,
+            REMOVE_LAYER = 2,
+        }
         private struct TaskInfo
         {
-            public Action<OverlayBase> callback;
+            public EDelayTaskType taskType;
             public OverlayBase obj;
         }
 
@@ -215,7 +243,7 @@ namespace NRKernal
         {
             NRDebugger.Info("[SwapChain] Create");
             m_LayerWorkingBufferDict = new Dictionary<UInt64, IntPtr>();
-            m_TaskQueue = new Queue<TaskInfo>();
+            m_TaskList = new List<TaskInfo>();
 
 #if !UNITY_EDITOR 
 #if USING_XR_SDK
@@ -234,20 +262,59 @@ namespace NRKernal
         {
             NRDebugger.Info("[SwapChain] Start");
 
+            var deviceType = NRDevice.Subsystem.GetDeviceType();
+            var supportMono = NRSessionManager.Instance.NRSessionBehaviour.SessionConfig.SupportMonoMode;
+            var targetRenderMode = NRSessionManager.Instance.NRSessionBehaviour.SessionConfig.TargetRenderMode;
+#if UNITY_EDITOR
+            var frameBufferMode = NativeFrameBufferMode.UnKnown;
+#else
+            var frameBufferMode = NRRenderer.NativeRenderring.NRRenderingGetFrameBufferMode();
+#endif
+
+            NRDebugger.Info("[SwapChain] Started: targetRenderMode={0}, supportMono={1}, frameBufferMode={2}, deviceType={3}", targetRenderMode, supportMono, frameBufferMode, deviceType);
+            if (targetRenderMode == NRRenderMode.Default)
+            {
+                // Throw exception here to avoid run on mono mode for an app which don't support mono, as SDK have no chance to block starting as it can be worked on both mono and stereo mode.
+                if (!supportMono && frameBufferMode == NativeFrameBufferMode.Mono)
+                {
+                    NativeErrorListener.Check(NativeResult.DisplayNotInStereoMode, this, "Start", true);
+                }
+
+                // We are unsure whether NRSDK is running in Stereo mode or PingpongStereo mode, and we don't care about that. Our only concern is whether it's running in Mono mode. 
+                m_MonoMode = frameBufferMode == NativeFrameBufferMode.Mono;
+            }
+            else
+            {
+                m_MonoMode = targetRenderMode == NRRenderMode.Mono;
+            }
+
 #if !UNITY_EDITOR
 #if USING_XR_SDK
             NativeXRPlugin.SetMonoMode(NRFrame.MonoMode);
 #else
             NRRenderer?.Start();
 #endif
-#endif
+            StartCoroutine(InitDisplayOverlayCoroutine());
+#else
             if (Application.isPlaying)
             {
                 InitDisplayOverlay();
             }
+#endif
 
         }
 
+
+        /// <summary> The renders coroutine. </summary>
+        /// <returns> An IEnumerator. </returns>
+        private IEnumerator InitDisplayOverlayCoroutine()
+        {
+            while (!started)
+                yield return null;
+            
+            InitDisplayOverlay();
+        }
+        
         void InitDisplayOverlay()
         {
 #if USING_XR_SDK || UNITY_EDITOR
@@ -262,6 +329,7 @@ namespace NRKernal
                 }
 
                 m_MonoDisplayOverlay = cOverlay;
+                m_MonoDisplayOverlay.InitAndActive();
             }
             else
             {
@@ -279,6 +347,9 @@ namespace NRKernal
                 var rightOverlay = centerCamera.gameObject.AddComponent<NRDisplayOverlay>();
                 rightOverlay.targetDisplay = NativeDevice.RIGHT_DISPLAY;
                 m_RightDisplayOverlay = rightOverlay;
+
+                m_LeftDisplayOverlay.InitAndActive();
+                m_RightDisplayOverlay.InitAndActive();
             }
 #else
             if (NRFrame.MonoMode)
@@ -291,6 +362,7 @@ namespace NRKernal
                     cOverlay.targetDisplay = NativeDevice.HEAD_CENTER;
                 }
                 m_MonoDisplayOverlay = cOverlay;
+                m_MonoDisplayOverlay.InitAndActive();
             }
             else
             {
@@ -311,6 +383,9 @@ namespace NRKernal
                     rOverlay.targetDisplay = NativeDevice.RIGHT_DISPLAY;
                 }
                 m_RightDisplayOverlay = rOverlay;
+
+                m_LeftDisplayOverlay.InitAndActive();
+                m_RightDisplayOverlay.InitAndActive();
             }
 #endif
 
@@ -328,18 +403,18 @@ namespace NRKernal
             isDisplayOverlayShow = false;
             if (m_MonoDisplayOverlay != null)
             {
-                Destroy(m_MonoDisplayOverlay);
+                DestroyImmediate(m_MonoDisplayOverlay);
                 m_MonoDisplayOverlay = null;
             }
 
             if (m_LeftDisplayOverlay != null)
             {
-                Destroy(m_LeftDisplayOverlay);
+                DestroyImmediate(m_LeftDisplayOverlay);
                 m_LeftDisplayOverlay = null;
             }
             if (m_RightDisplayOverlay != null)
             {
-                Destroy(m_RightDisplayOverlay);
+                DestroyImmediate(m_RightDisplayOverlay);
                 m_RightDisplayOverlay = null;
             }
 
@@ -486,11 +561,12 @@ namespace NRKernal
             {
                 return;
             }
-
             NRDebugger.Info("[SwapChain] GfxThreadStart: renderHandler={0}", renderHandler);
             m_RenderHandle = renderHandler;
             NativeSwapchain = new NativeSwapchain(renderHandler);
             started = true;
+            Update();
+            GL.InvalidateState();
         }
 
         internal void SetRefreshScreen(bool refresh)
@@ -514,13 +590,19 @@ namespace NRKernal
                 return;
             }
 
-            if (m_TaskQueue.Count != 0)
+            if (m_TaskList.Count != 0)
             {
-                while (m_TaskQueue.Count != 0)
+                m_TempRunningTasks.Clear();
+                m_TempRunningTasks.AddRange(m_TaskList);
+                m_TaskList.Clear();
+                foreach (var task in m_TempRunningTasks)
                 {
-                    var task = m_TaskQueue.Dequeue();
-                    task.callback.Invoke(task.obj);
+                    if (task.taskType == EDelayTaskType.ADD_LAYER)
+                        AddLayer(task.obj);
+                    else if (task.taskType == EDelayTaskType.REMOVE_LAYER)
+                        RemoveLayer(task.obj);
                 }
+                m_TempRunningTasks.Clear();
             }
         }
 
@@ -611,9 +693,9 @@ namespace NRKernal
             }
             else
             {
-                m_TaskQueue.Enqueue(new TaskInfo()
+                m_TaskList.Add(new TaskInfo()
                 {
-                    callback = AddLayer,
+                    taskType = EDelayTaskType.ADD_LAYER,
                     obj = overlay
                 });
             }
@@ -623,6 +705,15 @@ namespace NRKernal
         {
             if (!Overlays.Contains(overlay))
             {
+                //check if some layers waiting for add, then mark these layers invalid
+                for (int i = m_TaskList.Count - 1; i >= 0; i--)
+                {
+                    var item = m_TaskList[i];
+                    if (overlay == item.obj && item.taskType == EDelayTaskType.ADD_LAYER)
+                    {
+                        m_TaskList.RemoveAt(i);
+                    }
+                }
                 return;
             }
 
@@ -632,9 +723,9 @@ namespace NRKernal
             }
             else
             {
-                m_TaskQueue.Enqueue(new TaskInfo()
+                m_TaskList.Add(new TaskInfo()
                 {
-                    callback = RemoveLayer,
+                    taskType = EDelayTaskType.REMOVE_LAYER,
                     obj = overlay
                 });
             }
@@ -786,11 +877,14 @@ namespace NRKernal
                 {
                     var viewports = overlay.ViewPorts;
                     Assert.IsTrue(viewports != null && viewports.Length >= 1);
-                    int count = viewports.Length;
-                    for (int i = 0; i < count; i++)
+                    if(viewports != null)
                     {
-                        viewports[i].index = index;
-                        index++;
+                        int count = viewports.Length;
+                        for (int i = 0; i < count; i++)
+                        {
+                            viewports[i].index = index;
+                            index++;
+                        }
                     }
                 }
             }

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 * Copyright 2019 Xreal Techonology Limited. All rights reserved.
 *                                                                                                                                                          
 * This file is part of NRSDK.                                                                                                          
@@ -9,6 +9,7 @@
 
 namespace NRKernal
 {
+    using System;
     using System.Collections;
     using System.Collections.Generic;
     using UnityEngine;
@@ -20,12 +21,18 @@ namespace NRKernal
         /// <summary> The canvases. </summary>
         private static readonly List<ICanvasRaycastTarget> canvases = new List<ICanvasRaycastTarget>();
 
+        public static event Action<ICanvasRaycastTarget> CanvasTargetAdd;
+        public static event Action<ICanvasRaycastTarget> CanvasTargetRemove;
+
         /// <summary> Adds a target. </summary>
         /// <param name="obj"> The object.</param>
         public static void AddTarget(ICanvasRaycastTarget obj)
         {
-            if(obj != null)
+            if (obj != null)
+            {
                 canvases.Add(obj);
+                CanvasTargetAdd?.Invoke(obj);
+            }
         }
 
         /// <summary> Removes the target described by obj. </summary>
@@ -33,7 +40,10 @@ namespace NRKernal
         public static void RemoveTarget(ICanvasRaycastTarget obj)
         {
             if (obj != null)
+            {
                 canvases.Remove(obj);
+                CanvasTargetRemove?.Invoke(obj);
+            }
         }
 
         /// <summary> Gets the canvases. </summary>

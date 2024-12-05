@@ -67,12 +67,12 @@ namespace NRKernal.Record
         /// <param name="camera">  The camera.</param>
         /// <param name="encoder"> The encoder.</param>
         /// <param name="param">   The parameter.</param>
-        public override void Init(Camera camera, IEncoder encoder, CameraParameters param)
+        public override void Init(Camera[] camera, IEncoder encoder, CameraParameters param)
         {
             Width = param.cameraResolutionWidth;
             Height = param.cameraResolutionHeight;
             m_BlendMode = param.blendMode;
-            m_TargetCamera = camera;
+            m_TargetCamera = camera[0];
             m_Encoder = encoder;
 
             // An extra rendering is required when BlendMode is RGBOnly or WidescreenBlend.

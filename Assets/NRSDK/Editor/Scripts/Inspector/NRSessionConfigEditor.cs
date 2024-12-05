@@ -20,6 +20,7 @@ namespace NRKernal
         SerializedProperty EnableNotification;
         SerializedProperty ForceKillWhileGlassesSwitchMode;
         SerializedProperty SupportMonoMode;
+        SerializedProperty TargetRenderMode;
         SerializedProperty GlassesErrorTipPrefab;
         SerializedProperty TrackingModeChangeTipPrefab;
         SerializedProperty ProjectConfig;
@@ -36,6 +37,7 @@ namespace NRKernal
             EnableNotification = serializedObject.FindProperty("EnableNotification");
             ForceKillWhileGlassesSwitchMode = serializedObject.FindProperty("ForceKillWhileGlassesSwitchMode");
             SupportMonoMode = serializedObject.FindProperty("SupportMonoMode");
+            TargetRenderMode = serializedObject.FindProperty("TargetRenderMode");
             GlassesErrorTipPrefab = serializedObject.FindProperty("GlassesErrorTipPrefab");
             TrackingModeChangeTipPrefab = serializedObject.FindProperty("TrackingModeChangeTipPrefab");
             ProjectConfig = serializedObject.FindProperty("ProjectConfig");
@@ -57,6 +59,7 @@ namespace NRKernal
             EditorGUILayout.PropertyField(ForceKillWhileGlassesSwitchMode);
 #if ENABLE_MONO_MODE
             EditorGUILayout.PropertyField(SupportMonoMode);
+            EditorGUILayout.PropertyField(TargetRenderMode);
 #endif
 
             EditorGUILayout.Space();

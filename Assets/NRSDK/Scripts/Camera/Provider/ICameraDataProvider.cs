@@ -65,11 +65,6 @@ namespace NRKernal
         /// <returns> True if it succeeds, false if it fails. </returns>
         bool SetCaptureCallback(CameraImageCallback callback, UInt64 userdata = 0);
 
-        /// <summary> Sets image format. </summary>
-        /// <param name="format"> Describes the format to use.</param>
-        /// <returns> True if it succeeds, false if it fails. </returns>
-        bool SetImageFormat(CameraImageFormat format);
-
         /// <summary> Starts a capture. </summary>
         /// <returns> True if it succeeds, false if it fails. </returns>
         bool StartCapture();

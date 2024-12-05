@@ -66,7 +66,7 @@ namespace NRKernal
             m_NativeHeadTracking.Create();
 #endif
             NRDebugger.Info("[NRTrackingDataProvider] Started");
-#if ENABLE_NATIVE_SESSION_MANAGER
+#if ENABLE_NATIVE_SESSION_MANAGER && !UNITY_EDITOR
             NativeSessionManager.SetPerceptionHandle(0, m_NativeHeadTracking.TrackingHandle, m_NativeHeadTracking.HeadTrackingHandle);
 #endif
         }

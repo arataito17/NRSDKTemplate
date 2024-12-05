@@ -41,14 +41,21 @@ namespace NRKernal
         public bool ForceKillWhileGlassesSwitchMode = true;
 
 #if ENABLE_MONO_MODE
-        /// <summary> Chooses  whether to support to run in mono mode.")]. </summary>
+        /// <summary> Chooses whether to support to run in mono mode.)]. </summary>
         [Tooltip("Chooses whether to support to run in mono mode.")]
         public bool SupportMonoMode = false;
+
+        public NRRenderMode TargetRenderMode = NRRenderMode.Default;
 #else
         public bool SupportMonoMode { 
             get { return false; }
         }
+        
+        public NRRenderMode TargetRenderMode {
+            get { return NRRenderMode.Default; }
+        }
 #endif
+
 
         /// <summary> An error prompt will pop up when the device fails to connect. </summary>
         [Tooltip("An error prompt will pop up when the device fails to connect.")]

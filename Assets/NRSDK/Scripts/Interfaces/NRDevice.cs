@@ -28,6 +28,8 @@ namespace NRKernal
         GlassesStarted,
 
         HMDStarted,
+
+        NativeDisplayCreated,
         /// <summary> An enum constant representing the glasses is going to be paused after this event. </summary>
         GlassesPrePause,
         /// <summary> An enum constant representing the session is resumed just now. </summary>
@@ -39,16 +41,15 @@ namespace NRKernal
     /// <summary> Manage the HMD device. </summary>
     public class NRDevice : SingleTon<NRDevice>
     {
-        /// <summary> Event queue for all listeners interested in OnGlassesStateChanged events. </summary>
-        public static event GlassesEvent OnGlassesStateChanged;
         /// <summary> Event queue for all listeners interested in OnGlassesDisconnect events. </summary>
-        public static event GlassesDisconnectEvent OnGlassesDisconnect;
+        public static event GlassesEvent_Disconnect OnGlassesDisconnect;
         /// <summary> Event queue for all listeners interested in session events. </summary>
         public static SessionSpecialEvent OnSessionSpecialEvent;
 
         /// <summary> Values that represent glasses event types. </summary>
         public enum GlassesEventType
         {
+            UnKnow,
             /// <summary> An enum constant representing the put on option. </summary>
             PutOn,
             /// <summary> An enum constant representing the put off option. </summary>
@@ -82,21 +83,6 @@ namespace NRKernal
             get { return m_UnityActivity; }
         }
 
-
-        private bool m_MonoMode = false;
-        /// <summary> If sdk is running in mono mode. </summary>
-        /// <value> If sdk is running in mono mode. </value>
-        public bool MonoMode
-        {
-            get { return m_MonoMode; }
-            set
-            {
-                if (m_MonoMode != value)
-                {
-                    m_MonoMode = value;
-                }
-            }
-        }
 
         /// <summary> Init HMD device. </summary>
         public void Create()
@@ -143,19 +129,7 @@ namespace NRKernal
         {
             NRDebugger.Info("[NRDevice] Start");
             Subsystem.Start();
-            NRDeviceSubsystem.OnGlassesStateChanged += OnGlassesWear;
-            NRDeviceSubsystem.OnGlassesDisconnect += OnGlassesDisconnectEvent;
-
-            var supportMono = NRSessionManager.Instance.NRSessionBehaviour.SessionConfig.SupportMonoMode;
-            var curStereoMode = Subsystem.GlassesStereoMode;
-            MonoMode = supportMono && curStereoMode == NativeGlassesStereoMode.Mono;
-            NRDebugger.Info("[NRDevice] Started: supportMono={0}, curStereoMode={1}, MonoMode={2}", supportMono, curStereoMode, MonoMode);
-
-            // Throw exception here, as SDK have no chance to block starting as it can be worked on both 2d and 3d mode.
-            if (!supportMono && curStereoMode == NativeGlassesStereoMode.Mono)
-            {
-                NativeErrorListener.Check(NativeResult.DisplayNoInStereoMode, this, "Start", true);
-            }
+            NRDeviceSubsystem.OnGlassesEvent_Disconnect += OnGlassesDisconnectEvent;
         }
 
         public void Pause()
@@ -170,8 +144,8 @@ namespace NRKernal
 
         public void Destroy()
         {
-            NRDeviceSubsystem.OnGlassesStateChanged -= OnGlassesWear;
-            NRDeviceSubsystem.OnGlassesDisconnect -= OnGlassesDisconnectEvent;
+            //NRDeviceSubsystem.OnGlassesStateChanged -= OnGlassesWear;
+            NRDeviceSubsystem.OnGlassesEvent_Disconnect -= OnGlassesDisconnectEvent;
 
             NRDebugger.Info("[NRDevice] Destroy");
             Subsystem.Destroy();
@@ -182,13 +156,6 @@ namespace NRKernal
             NRDebugger.Info("[NRDevice] Destroyed");
 
             m_IsInitialized = false;
-        }
-
-        private void OnGlassesWear(NRDevice.GlassesEventType eventtype)
-        {
-            NRDebugger.Info("[NRDevice] " + (eventtype == GlassesEventType.PutOn ? "Glasses put on" : "Glasses put off"));
-            OnGlassesStateChanged?.Invoke(eventtype);
-            NRSessionManager.OnGlassesStateChanged?.Invoke(eventtype);
         }
 
         private void OnGlassesDisconnectEvent(GlassesDisconnectReason reason)

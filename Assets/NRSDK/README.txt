@@ -1,5 +1,5 @@
 ﻿Xreal MR SDK for Unity
-version 2.3.1
+version 2.4.0
 
 This SDK provides Android and windows developers with the easiest way to add
 Xreal MR support to their Unity projects.
