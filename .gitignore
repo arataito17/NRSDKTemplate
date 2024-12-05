@@ -68,3 +68,4 @@ conansync/aar
 conansync/libs
 conansync/src
 *.apk
+.utmp
