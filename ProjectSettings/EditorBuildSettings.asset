@@ -4,5 +4,9 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/NRSDKExperimental/Demos/CoastersImageTracking/CoastersImageTracking.unity
+    guid: 8a98728b625f2c94cb77552b8c9f8638
   m_configObjects: {}
+  m_UseUCBPForAssetBundles: 0
