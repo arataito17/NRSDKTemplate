@@ -9,9 +9,11 @@
 
 using NRKernal.Record;
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Networking; // 追加
 
 namespace NRKernal.NRExamples
 {
@@ -67,7 +69,7 @@ namespace NRKernal.NRExamples
                 cameraParameters.cameraResolutionHeight = m_CameraResolution.height;
                 cameraParameters.pixelFormat = CapturePixelFormat.PNG;
                 cameraParameters.frameRate = NativeConstants.RECORD_FPS_DEFAULT;
-                cameraParameters.blendMode = BlendMode.Blend;
+                cameraParameters.blendMode = BlendMode.RGBOnly;
 
                 // Activate the camera
                 m_PhotoCaptureObject.StartPhotoModeAsync(cameraParameters, delegate (NRPhotoCapture.PhotoCaptureResult result)
@@ -113,9 +115,15 @@ namespace NRKernal.NRExamples
         /// <summary> Executes the 'captured photo memory' action. </summary>
         /// <param name="result">            The result.</param>
         /// <param name="photoCaptureFrame"> The photo capture frame.</param>
-        void OnCapturedPhotoToMemory(NRPhotoCapture.PhotoCaptureResult result, PhotoCaptureFrame photoCaptureFrame)
+         void OnCapturedPhotoToMemory(NRPhotoCapture.PhotoCaptureResult result, PhotoCaptureFrame photoCaptureFrame)
         {
+            NRDebugger.Info("PhotoCaptureExample: OnCapturedPhotoToMemory, Resolution: {0}x{1}", m_CameraResolution.width, m_CameraResolution.height);
+
             var targetTexture = new Texture2D(m_CameraResolution.width, m_CameraResolution.height);
+
+            // ここでTexture2Dのサイズをログ出力
+            Debug.Log($"[Check] Texture2D size: {targetTexture.width} x {targetTexture.height}");
+
             // Copy the raw image data into our target texture
             photoCaptureFrame.UploadImageDataToTexture(targetTexture);
 
@@ -132,9 +140,46 @@ namespace NRKernal.NRExamples
             quadRenderer.material.SetTexture("_MainTex", targetTexture);
             SaveTextureAsPNG(photoCaptureFrame);
 
+            // 画像データをPCへ送信
+            if (photoCaptureFrame.TextureData != null)
+            {
+                StartCoroutine(SendPhotoToPC(photoCaptureFrame.TextureData));
+            }
+
             SaveTextureToGallery(photoCaptureFrame);
             // Release camera resource after capture the photo.
             this.Close();
+        }
+
+
+        // --- 追加: 画像データをPCへ送信するコルーチン ---
+        IEnumerator SendPhotoToPC(byte[] imageData)
+        {
+            Debug.Log("Sending photo to PC...");
+            string url = "http://192.168.1.21:5001/upload"; // ←ここを修正
+            WWWForm form = new WWWForm();
+            form.AddBinaryData("file", imageData, "photo.png", "image/png");
+
+            using (UnityWebRequest www = UnityWebRequest.Post(url, form))
+            {
+                Debug.Log("PCへの画像送信開始");
+                yield return www.SendWebRequest();
+
+                if (www.result == UnityWebRequest.Result.Success)
+                {
+                    Debug.Log("PCへの画像送信成功");
+                }
+                else
+                {
+                    Debug.LogError("PCへの画像送信失敗: " + www.error);
+                }
+            }
+        }
+
+        IEnumerator SendPhotoToPCAndClose(byte[] imageData)
+        {
+            yield return StartCoroutine(SendPhotoToPC(imageData));
+            this.Close(); // 送信完了後にClose
         }
 
         void SaveTextureAsPNG(PhotoCaptureFrame photoCaptureFrame)

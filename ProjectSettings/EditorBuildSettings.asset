@@ -5,8 +5,17 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/NRSDK/Demos/Input-VirtualController.unity
     guid: 8438388fcd9d9714f81e1bea09d02c18
+  - enabled: 0
+    path: Assets/NRSDK/Demos/RGBCamera-Capture.unity
+    guid: e0b534db44fbb1a48b5410630bbcd749
+  - enabled: 0
+    path: Assets/NRSDKExperimental/Demos/FirstPersonViewStreamingCast.unity
+    guid: cea9a23c5135fb0419a3c65aa6d1a01d
+  - enabled: 1
+    path: Assets/Scenes/takesendphotos.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
