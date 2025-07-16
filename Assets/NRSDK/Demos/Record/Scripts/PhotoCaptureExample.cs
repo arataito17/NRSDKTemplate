@@ -36,7 +36,7 @@ namespace NRKernal.NRExamples
 
         void Update()
         {
-            if (NRInput.GetButtonDown(ControllerButton.TRIGGER))
+            if (NRInput.Hands.GetHandState(HandEnum.RightHand).isPinching)
             {
                 TakeAPhoto();
             }
