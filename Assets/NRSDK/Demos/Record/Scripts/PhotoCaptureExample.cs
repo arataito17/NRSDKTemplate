@@ -7,13 +7,16 @@
 * 
 *****************************************************************************/
 
+using NRKernal;
 using NRKernal.Record;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking; // 追加
+using Newtonsoft.Json;
 
 namespace NRKernal.NRExamples
 {
@@ -34,11 +37,25 @@ namespace NRKernal.NRExamples
         private bool isOnPhotoProcess = false;
         GalleryDataProvider galleryDataTool;
 
+        // --- 追加: ピンチ継続時間管理用 ---
+        private float pinchDuration = 0f;
+        public float pinchThresholdSeconds = 2.0f;
+
         void Update()
         {
-            if (NRInput.Hands.GetHandState(HandEnum.RightHand).isPinching)
+            var handState = NRInput.Hands.GetHandState(HandEnum.RightHand);
+            if (handState.isPinching)
             {
-                TakeAPhoto();
+                pinchDuration += Time.deltaTime;
+                if (pinchDuration >= pinchThresholdSeconds)
+                {
+                    TakeAPhoto();
+                    pinchDuration = 0f; // 連続撮影防止
+                }
+            }
+            else
+            {
+                pinchDuration = 0f;
             }
         }
 
@@ -153,12 +170,43 @@ namespace NRKernal.NRExamples
 
 
         // --- 追加: 画像データをPCへ送信するコルーチン ---
+        [System.Serializable]
+        public class ObjectInfo
+        {
+            public string description;
+            public float[] world_position;
+        }
+
+        [System.Serializable]
+        public class Intrinsics
+        {
+            public float fx;
+            public float fy;
+            public float cx;
+            public float cy;
+        }
+
         IEnumerator SendPhotoToPC(byte[] imageData)
         {
             Debug.Log("Sending photo to PC...");
-            string url = "http://192.168.1.21:5001/upload"; // ←ここを修正
+            string url = "http://192.168.1.21:5001/upload";
+
+            // カメラ内部行列を取得
+            Debug.Log("NRFrame.GetDeviceIntrinsicMatrixを呼び出し");
+            NativeMat3f mat = NRFrame.GetDeviceIntrinsicMatrix(NativeDevice.RGB_CAMERA);
+            float fx = mat[0, 0];
+            float fy = mat[1, 1];
+            float cx = mat[0, 2];
+            float cy = mat[1, 2];
+
+            // JSON化
+            var intrinsics = new Intrinsics { fx = fx, fy = fy, cx = cx, cy = cy };
+            string intrinsicsJson = JsonUtility.ToJson(intrinsics);
+            Debug.Log("送信intrinsics: " + intrinsicsJson); // デバッグ用
+
             WWWForm form = new WWWForm();
             form.AddBinaryData("file", imageData, "photo.png", "image/png");
+            form.AddField("intrinsics", intrinsicsJson);
 
             using (UnityWebRequest www = UnityWebRequest.Post(url, form))
             {
@@ -168,6 +216,32 @@ namespace NRKernal.NRExamples
                 if (www.result == UnityWebRequest.Result.Success)
                 {
                     Debug.Log("PCへの画像送信成功");
+
+                    // --- ここから追加 ---
+                    string json = www.downloadHandler.text;
+                    var objDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, ObjectInfo>>(json);
+
+                    foreach (var kv in objDict)
+                    {
+                        // カメラ座標系での位置
+                        Vector3 camPos = new Vector3(
+                            kv.Value.world_position[0],
+                            kv.Value.world_position[1],
+                            kv.Value.world_position[2]
+                        );
+                        // カメラ座標系→ワールド座標系
+                        Vector3 worldPos = Camera.main.transform.TransformPoint(camPos);
+
+                        // 写真Quadと同じようにCubeを生成
+                        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        cube.transform.position = worldPos;
+                        cube.transform.localScale = Vector3.one * 0.1f; // サイズ調整
+                        cube.name = kv.Key + "_object";
+
+                        // 必要なら説明をデバッグ表示
+                        Debug.Log($"{kv.Key}: {kv.Value.description} @ {worldPos}");
+                    }
+                    // --- ここまで追加 ---
                 }
                 else
                 {

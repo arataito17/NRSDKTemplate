@@ -69,3 +69,4 @@ conansync/libs
 conansync/src
 *.apk
 .utmp
+.env
